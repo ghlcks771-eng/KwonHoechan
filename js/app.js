@@ -2801,7 +2801,7 @@
           unit.style.transform = `translateX(${dir * -window.innerWidth}px)`;
           pendingGalleryEnterDir = dir;
           setTimeout(() => { location.hash = galleryPageHref(info.baseHref, targetPage); }, 190);
-          setTimeout(() => { transitioning = false; }, 420); // 나가기+대기+들어오기가 실제로 끝나는 시점 기준
+          setTimeout(() => { transitioning = false; }, 350); // 나가기+대기+들어오기가 실제로 끝나는 시점 기준
           return;
         }
         if (dir < 0 && info.curPage === 1 && info.exhibitionId) {
