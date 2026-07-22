@@ -2801,7 +2801,7 @@
           unit.style.transform = `translateX(${dir * -window.innerWidth}px)`;
           pendingGalleryEnterDir = dir;
           setTimeout(() => { location.hash = galleryPageHref(info.baseHref, targetPage); }, 190);
-          setTimeout(() => { transitioning = false; }, 650); // 나가기+대기+들어오기 다 끝난 뒤 해제
+          setTimeout(() => { transitioning = false; }, 420); // 나가기+대기+들어오기가 실제로 끝나는 시점 기준
           return;
         }
         if (dir < 0 && info.curPage === 1 && info.exhibitionId) {
@@ -2812,7 +2812,7 @@
           unit.style.transition = "transform 0.2s ease";
           unit.style.transform = `translateX(${window.innerWidth}px)`;
           setTimeout(() => { location.hash = `#/exhibition/${info.exhibitionId}`; }, 190);
-          setTimeout(() => { transitioning = false; }, 450);
+          setTimeout(() => { transitioning = false; }, 250);
           return;
         }
       }
