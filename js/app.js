@@ -2744,6 +2744,9 @@
   // 렌더링 단계에서 둘을 .gallery-swipe-unit 하나로 묶어두고 이 컨테이너 하나만 옮김
   (function setupGallerySwipe() {
     let startX = 0, startY = 0, active = false, swiping = false, unit = null;
+    // 전환이 확정된 순간부터 완전히 끝날 때까지는 새 터치를 아예 시작하지 못하게 막음
+    // (도중에 터치하면 애니메이션이 끊기고 원래 화면으로 되돌아가 보이던 문제 방지)
+    let transitioning = false;
 
     function getActiveUnit() {
       if (lightbox.classList.contains("open")) return null;
@@ -2755,6 +2758,7 @@
     let startTime = 0;
 
     document.addEventListener("touchstart", (e) => {
+      if (transitioning) { active = false; return; }
       if (e.touches.length !== 1) { active = false; return; }
       unit = getActiveUnit();
       if (!unit) { active = false; return; }
@@ -2792,19 +2796,23 @@
         const dir = dx < 0 ? 1 : -1; // 1 = 다음 페이지, -1 = 이전 페이지
         const targetPage = info.curPage + dir;
         if (targetPage >= 1 && targetPage <= info.totalPages) {
+          transitioning = true;
           unit.style.transition = "transform 0.2s ease";
           unit.style.transform = `translateX(${dir * -window.innerWidth}px)`;
           pendingGalleryEnterDir = dir;
           setTimeout(() => { location.hash = galleryPageHref(info.baseHref, targetPage); }, 190);
+          setTimeout(() => { transitioning = false; }, 650); // 나가기+대기+들어오기 다 끝난 뒤 해제
           return;
         }
         if (dir < 0 && info.curPage === 1 && info.exhibitionId) {
           // 더보기 첫 페이지에서 더 뒤로 밀면 전시 개요 페이지로 돌아감
           const kind = info.baseHref.split("/").pop();
           pendingKeyboardEdgeFocus = { edge: "first", kind };
+          transitioning = true;
           unit.style.transition = "transform 0.2s ease";
           unit.style.transform = `translateX(${window.innerWidth}px)`;
           setTimeout(() => { location.hash = `#/exhibition/${info.exhibitionId}`; }, 190);
+          setTimeout(() => { transitioning = false; }, 450);
           return;
         }
       }
