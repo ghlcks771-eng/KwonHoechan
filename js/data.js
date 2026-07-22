@@ -27,7 +27,7 @@ const PROFILE = {
 // ------------------------------------------------------------
 const WORKS = {
   p01: {
-    thumb: "", image: "", title: { ko: "무제", en: "Untitled" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
+    thumb: "", image: "자화상, 2021, oil and conte on canvas, 160x130cm.png", title: { ko: "무제", en: "Untitled" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
     year: "2024",
     medium: { ko: "캔버스에 콩테, 유채", en: "Conté and oil on canvas" },
     size: "72.7 × 60.6 cm",
