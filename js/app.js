@@ -502,7 +502,10 @@
     const list = fullList || cards.map((c) => c.dataset.work);
     cards.forEach((card) => {
       const explicitIndex = card.dataset.workIndex != null ? Number(card.dataset.workIndex) : null;
-      card.addEventListener("click", () => openWorkLightbox(card.dataset.work, context, list, source, explicitIndex));
+      card.addEventListener("click", () => {
+        scrollElementToCenter(card);
+        openWorkLightbox(card.dataset.work, context, list, source, explicitIndex);
+      });
     });
   }
 
@@ -627,7 +630,10 @@
     attachThumbHandlers(app, "exhibition", allWorks, { type: "exhibition", exhibitionId: ex.id, kind: "works" });
     app.querySelectorAll(".card[data-install]").forEach((card) => {
       const idx = Number(card.dataset.install);
-      card.addEventListener("click", () => openInstallLightbox(idx, allInstalls, { type: "exhibition", exhibitionId: ex.id, kind: "installs" }));
+      card.addEventListener("click", () => {
+        scrollElementToCenter(card);
+        openInstallLightbox(idx, allInstalls, { type: "exhibition", exhibitionId: ex.id, kind: "installs" });
+      });
     });
     applyPendingKeyboardEdgeFocus();
     applyPendingPostTitleHighlight();
@@ -672,7 +678,10 @@
     } else {
       app.querySelectorAll(".card[data-install]").forEach((card) => {
         const globalIdx = Number(card.dataset.install);
-        card.addEventListener("click", () => openInstallLightbox(globalIdx, all, gallerySource));
+        card.addEventListener("click", () => {
+          scrollElementToCenter(card);
+          openInstallLightbox(globalIdx, all, gallerySource);
+        });
       });
     }
     applyPendingLightboxSync();
@@ -2711,6 +2720,15 @@
     return page > 1 ? `${baseHref}/page-${page}` : baseHref;
   }
 
+  // 요소를 화면 밖(정확히 경계에 걸치는 지점)으로 보내는 데 필요한 오프셋을 그 요소
+  // 자신의 실제 위치/너비 기준으로 계산함 - 화면 전체 폭인 그리드와, .wrap 안에
+  // 중앙정렬된 좁은 페이저는 같은 window.innerWidth를 적용하면 페이저가 필요 이상
+  // 멀리 밀려나서(오버슈트) 화면에 나타나기 시작하는 시점이 서로 어긋나 보이게 됨
+  function offsetToClearViewport(el, moveDir) {
+    const rect = el.getBoundingClientRect();
+    return moveDir > 0 ? (window.innerWidth - rect.left) : -(rect.left + rect.width);
+  }
+
   let pendingGalleryEnterDir = null;
 
   function applyPendingGalleryEnterAnimation() {
@@ -2723,7 +2741,7 @@
     const els = pager ? [grid, pager] : [grid];
     els.forEach((el) => {
       el.style.transition = "none";
-      el.style.transform = `translateX(${dir * window.innerWidth}px)`;
+      el.style.transform = `translateX(${offsetToClearViewport(el, dir)}px)`;
     });
     void grid.offsetWidth; // 강제 리플로우 - 트랜지션 없이 초기 위치를 먼저 확실히 반영시킴
     requestAnimationFrame(() => {
@@ -2752,6 +2770,18 @@
       if (pager) {
         pager.style.transition = transition;
         pager.style.transform = transform;
+      }
+    }
+
+    // 화면 밖으로 내보낼 때는 요소마다 자기 위치/너비 기준으로 오프셋을 개별 계산해야
+    // 그리드(화면 전체 폭)와 페이저(중앙정렬된 좁은 요소)가 같은 시점에 화면 경계를
+    // 벗어나기 시작해서 속도가 맞아 보임
+    function exitTransforms(moveDir) {
+      grid.style.transition = "transform 0.2s ease";
+      grid.style.transform = `translateX(${offsetToClearViewport(grid, moveDir)}px)`;
+      if (pager) {
+        pager.style.transition = "transform 0.2s ease";
+        pager.style.transform = `translateX(${offsetToClearViewport(pager, moveDir)}px)`;
       }
     }
 
@@ -2795,7 +2825,7 @@
         const dir = dx < 0 ? 1 : -1; // 1 = 다음 페이지, -1 = 이전 페이지
         const targetPage = info.curPage + dir;
         if (targetPage >= 1 && targetPage <= info.totalPages) {
-          setTransforms("transform 0.2s ease", `translateX(${dir * -window.innerWidth}px)`);
+          exitTransforms(-dir);
           pendingGalleryEnterDir = dir;
           setTimeout(() => { location.hash = galleryPageHref(info.baseHref, targetPage); }, 190);
           return;
@@ -2804,7 +2834,7 @@
           // 더보기 첫 페이지에서 더 뒤로 밀면 전시 개요 페이지로 돌아감
           const kind = info.baseHref.split("/").pop();
           pendingKeyboardEdgeFocus = { edge: "first", kind };
-          setTransforms("transform 0.2s ease", `translateX(${window.innerWidth}px)`);
+          exitTransforms(1);
           setTimeout(() => { location.hash = `#/exhibition/${info.exhibitionId}`; }, 190);
           return;
         }
