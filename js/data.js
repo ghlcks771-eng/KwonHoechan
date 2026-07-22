@@ -27,24 +27,204 @@ const PROFILE = {
 // ------------------------------------------------------------
 const WORKS = {
   p01: {
-    thumb: "", image: "images/p01.png", title: { ko: "무제", en: "Untitled" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
+    thumb: "", image: "images/자화상, 2021, oil and conte on canvas, 160x130cm.png", title: { ko: "무제", en: "Untitled" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
     year: "2024",
     medium: { ko: "캔버스에 콩테, 유채", en: "Conté and oil on canvas" },
     size: "72.7 × 60.6 cm",
     note: { ko: "", en: "" }
   },
   p02: {
-    thumb: "", image: "", title: { ko: "무제", en: "Untitled" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
-    year: "2023",
-    medium: { ko: "캔버스에 콩테, 유채", en: "Conté and oil on canvas" },
-    size: "53 × 45.5 cm",
-    note: { ko: "", en: "" }
-  },
-  p03: {
-    thumb: "", image: "", title: { ko: "무제", en: "Untitled" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
+    thumb: "", image: "images/자화상, 2021, oil and conte on canvas, 160x130cm.png", title: { ko: "무제", en: "Untitled" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
     year: "2024",
     medium: { ko: "캔버스에 콩테, 유채", en: "Conté and oil on canvas" },
-    size: "45.5 × 45.5 cm",
+    size: "72.7 × 60.6 cm",
+    note: { ko: "", en: "" }
+  },  p03: {
+    thumb: "", image: "images/자화상, 2021, oil and conte on canvas, 160x130cm.png", title: { ko: "무제", en: "Untitled" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
+    year: "2024",
+    medium: { ko: "캔버스에 콩테, 유채", en: "Conté and oil on canvas" },
+    size: "72.7 × 60.6 cm",
+    note: { ko: "", en: "" }
+  },  p04: {
+    thumb: "", image: "images/자화상, 2021, oil and conte on canvas, 160x130cm.png", title: { ko: "무제", en: "Untitled" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
+    year: "2024",
+    medium: { ko: "캔버스에 콩테, 유채", en: "Conté and oil on canvas" },
+    size: "72.7 × 60.6 cm",
+    note: { ko: "", en: "" }
+  },  p05: {
+    thumb: "", image: "images/자화상, 2021, oil and conte on canvas, 160x130cm.png", title: { ko: "무제", en: "Untitled" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
+    year: "2024",
+    medium: { ko: "캔버스에 콩테, 유채", en: "Conté and oil on canvas" },
+    size: "72.7 × 60.6 cm",
+    note: { ko: "", en: "" }
+  },  p06: {
+    thumb: "", image: "images/자화상, 2021, oil and conte on canvas, 160x130cm.png", title: { ko: "무제", en: "Untitled" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
+    year: "2024",
+    medium: { ko: "캔버스에 콩테, 유채", en: "Conté and oil on canvas" },
+    size: "72.7 × 60.6 cm",
+    note: { ko: "", en: "" }
+  },  p07: {
+    thumb: "", image: "images/자화상, 2021, oil and conte on canvas, 160x130cm.png", title: { ko: "무제", en: "Untitled" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
+    year: "2024",
+    medium: { ko: "캔버스에 콩테, 유채", en: "Conté and oil on canvas" },
+    size: "72.7 × 60.6 cm",
+    note: { ko: "", en: "" }
+  },  p08: {
+    thumb: "", image: "images/자화상, 2021, oil and conte on canvas, 160x130cm.png", title: { ko: "무제", en: "Untitled" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
+    year: "2024",
+    medium: { ko: "캔버스에 콩테, 유채", en: "Conté and oil on canvas" },
+    size: "72.7 × 60.6 cm",
+    note: { ko: "", en: "" }
+  },  p09: {
+    thumb: "", image: "images/자화상, 2021, oil and conte on canvas, 160x130cm.png", title: { ko: "무제", en: "Untitled" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
+    year: "2024",
+    medium: { ko: "캔버스에 콩테, 유채", en: "Conté and oil on canvas" },
+    size: "72.7 × 60.6 cm",
+    note: { ko: "", en: "" }
+  },  p10: {
+    thumb: "", image: "images/자화상, 2021, oil and conte on canvas, 160x130cm.png", title: { ko: "무제", en: "Untitled" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
+    year: "2024",
+    medium: { ko: "캔버스에 콩테, 유채", en: "Conté and oil on canvas" },
+    size: "72.7 × 60.6 cm",
+    note: { ko: "", en: "" }
+  },  p11: {
+    thumb: "", image: "images/자화상, 2021, oil and conte on canvas, 160x130cm.png", title: { ko: "무제", en: "Untitled" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
+    year: "2024",
+    medium: { ko: "캔버스에 콩테, 유채", en: "Conté and oil on canvas" },
+    size: "72.7 × 60.6 cm",
+    note: { ko: "", en: "" }
+  },  p12: {
+    thumb: "", image: "images/자화상, 2021, oil and conte on canvas, 160x130cm.png", title: { ko: "무제", en: "Untitled" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
+    year: "2024",
+    medium: { ko: "캔버스에 콩테, 유채", en: "Conté and oil on canvas" },
+    size: "72.7 × 60.6 cm",
+    note: { ko: "", en: "" }
+  },  p13: {
+    thumb: "", image: "images/자화상, 2021, oil and conte on canvas, 160x130cm.png", title: { ko: "무제", en: "Untitled" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
+    year: "2024",
+    medium: { ko: "캔버스에 콩테, 유채", en: "Conté and oil on canvas" },
+    size: "72.7 × 60.6 cm",
+    note: { ko: "", en: "" }
+  },  p14: {
+    thumb: "", image: "images/자화상, 2021, oil and conte on canvas, 160x130cm.png", title: { ko: "무제", en: "Untitled" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
+    year: "2024",
+    medium: { ko: "캔버스에 콩테, 유채", en: "Conté and oil on canvas" },
+    size: "72.7 × 60.6 cm",
+    note: { ko: "", en: "" }
+  },  p15: {
+    thumb: "", image: "images/자화상, 2021, oil and conte on canvas, 160x130cm.png", title: { ko: "무제", en: "Untitled" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
+    year: "2024",
+    medium: { ko: "캔버스에 콩테, 유채", en: "Conté and oil on canvas" },
+    size: "72.7 × 60.6 cm",
+    note: { ko: "", en: "" }
+  },  p16: {
+    thumb: "", image: "images/자화상, 2021, oil and conte on canvas, 160x130cm.png", title: { ko: "무제", en: "Untitled" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
+    year: "2024",
+    medium: { ko: "캔버스에 콩테, 유채", en: "Conté and oil on canvas" },
+    size: "72.7 × 60.6 cm",
+    note: { ko: "", en: "" }
+  },  p17: {
+    thumb: "", image: "images/자화상, 2021, oil and conte on canvas, 160x130cm.png", title: { ko: "무제", en: "Untitled" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
+    year: "2024",
+    medium: { ko: "캔버스에 콩테, 유채", en: "Conté and oil on canvas" },
+    size: "72.7 × 60.6 cm",
+    note: { ko: "", en: "" }
+  },  p18: {
+    thumb: "", image: "images/자화상, 2021, oil and conte on canvas, 160x130cm.png", title: { ko: "무제", en: "Untitled" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
+    year: "2024",
+    medium: { ko: "캔버스에 콩테, 유채", en: "Conté and oil on canvas" },
+    size: "72.7 × 60.6 cm",
+    note: { ko: "", en: "" }
+  },  p19: {
+    thumb: "", image: "images/자화상, 2021, oil and conte on canvas, 160x130cm.png", title: { ko: "무제", en: "Untitled" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
+    year: "2024",
+    medium: { ko: "캔버스에 콩테, 유채", en: "Conté and oil on canvas" },
+    size: "72.7 × 60.6 cm",
+    note: { ko: "", en: "" }
+  },  p20: {
+    thumb: "", image: "images/자화상, 2021, oil and conte on canvas, 160x130cm.png", title: { ko: "무제", en: "Untitled" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
+    year: "2024",
+    medium: { ko: "캔버스에 콩테, 유채", en: "Conté and oil on canvas" },
+    size: "72.7 × 60.6 cm",
+    note: { ko: "", en: "" }
+  },  p21: {
+    thumb: "", image: "images/자화상, 2021, oil and conte on canvas, 160x130cm.png", title: { ko: "무제", en: "Untitled" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
+    year: "2024",
+    medium: { ko: "캔버스에 콩테, 유채", en: "Conté and oil on canvas" },
+    size: "72.7 × 60.6 cm",
+    note: { ko: "", en: "" }
+  },  p22: {
+    thumb: "", image: "images/자화상, 2021, oil and conte on canvas, 160x130cm.png", title: { ko: "무제", en: "Untitled" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
+    year: "2024",
+    medium: { ko: "캔버스에 콩테, 유채", en: "Conté and oil on canvas" },
+    size: "72.7 × 60.6 cm",
+    note: { ko: "", en: "" }
+  },  p23: {
+    thumb: "", image: "images/자화상, 2021, oil and conte on canvas, 160x130cm.png", title: { ko: "무제", en: "Untitled" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
+    year: "2024",
+    medium: { ko: "캔버스에 콩테, 유채", en: "Conté and oil on canvas" },
+    size: "72.7 × 60.6 cm",
+    note: { ko: "", en: "" }
+  },  p24: {
+    thumb: "", image: "images/자화상, 2021, oil and conte on canvas, 160x130cm.png", title: { ko: "무제", en: "Untitled" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
+    year: "2024",
+    medium: { ko: "캔버스에 콩테, 유채", en: "Conté and oil on canvas" },
+    size: "72.7 × 60.6 cm",
+    note: { ko: "", en: "" }
+  },  p25: {
+    thumb: "", image: "images/자화상, 2021, oil and conte on canvas, 160x130cm.png", title: { ko: "무제", en: "Untitled" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
+    year: "2024",
+    medium: { ko: "캔버스에 콩테, 유채", en: "Conté and oil on canvas" },
+    size: "72.7 × 60.6 cm",
+    note: { ko: "", en: "" }
+  },  p26: {
+    thumb: "", image: "images/자화상, 2021, oil and conte on canvas, 160x130cm.png", title: { ko: "무제", en: "Untitled" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
+    year: "2024",
+    medium: { ko: "캔버스에 콩테, 유채", en: "Conté and oil on canvas" },
+    size: "72.7 × 60.6 cm",
+    note: { ko: "", en: "" }
+  },  p27: {
+    thumb: "", image: "images/자화상, 2021, oil and conte on canvas, 160x130cm.png", title: { ko: "무제", en: "Untitled" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
+    year: "2024",
+    medium: { ko: "캔버스에 콩테, 유채", en: "Conté and oil on canvas" },
+    size: "72.7 × 60.6 cm",
+    note: { ko: "", en: "" }
+  },  p28: {
+    thumb: "", image: "images/자화상, 2021, oil and conte on canvas, 160x130cm.png", title: { ko: "무제", en: "Untitled" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
+    year: "2024",
+    medium: { ko: "캔버스에 콩테, 유채", en: "Conté and oil on canvas" },
+    size: "72.7 × 60.6 cm",
+    note: { ko: "", en: "" }
+  },  p29: {
+    thumb: "", image: "images/자화상, 2021, oil and conte on canvas, 160x130cm.png", title: { ko: "무제", en: "Untitled" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
+    year: "2024",
+    medium: { ko: "캔버스에 콩테, 유채", en: "Conté and oil on canvas" },
+    size: "72.7 × 60.6 cm",
+    note: { ko: "", en: "" }
+  },  p30: {
+    thumb: "", image: "images/자화상, 2021, oil and conte on canvas, 160x130cm.png", title: { ko: "무제", en: "Untitled" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
+    year: "2024",
+    medium: { ko: "캔버스에 콩테, 유채", en: "Conté and oil on canvas" },
+    size: "72.7 × 60.6 cm",
+    note: { ko: "", en: "" }
+  },  p31: {
+    thumb: "", image: "images/자화상, 2021, oil and conte on canvas, 160x130cm.png", title: { ko: "무제", en: "Untitled" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
+    year: "2024",
+    medium: { ko: "캔버스에 콩테, 유채", en: "Conté and oil on canvas" },
+    size: "72.7 × 60.6 cm",
+    note: { ko: "", en: "" }
+  },  p32: {
+    thumb: "", image: "images/자화상, 2021, oil and conte on canvas, 160x130cm.png", title: { ko: "무제", en: "Untitled" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
+    year: "2024",
+    medium: { ko: "캔버스에 콩테, 유채", en: "Conté and oil on canvas" },
+    size: "72.7 × 60.6 cm",
+    note: { ko: "", en: "" }
+  },
+    p33: {
+    thumb: "", image: "images/자화상, 2021, oil and conte on canvas, 160x130cm.png", title: { ko: "무제", en: "Untitled" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
+    year: "2024",
+    medium: { ko: "캔버스에 콩테, 유채", en: "Conté and oil on canvas" },
+    size: "72.7 × 60.6 cm",
     note: { ko: "", en: "" }
   },
   l01: {
@@ -102,7 +282,7 @@ const WORK_CATEGORIES = [
     id: "doodle-portrait",
     title: { ko: "낙서의 초상", en: "Portraits of Doodle" },
     children: [
-      { id: "portrait", title: { ko: "초상", en: "Portrait" }, works: ["p01", "p02", "p03"] },
+      { id: "portrait", title: { ko: "초상", en: "Portrait" }, works: ["p01", "p02", "p03", "p04", "p05", "p06", "p07", "p08", "p09", "p10", "p11", "p12", "p13", "p14", "p15", "p16", "p17", "p18", "p19", "p20", "p21", "p22", "p23", "p24", "p25", "p26", "p27", "p28", "p29", "p30", "p31", "p32", "p33"] },
       { id: "landscape", title: { ko: "풍경", en: "Landscape" }, works: ["l01", "l02"] },
       { id: "others-portrait", title: { ko: "타인의 초상", en: "Portraits of Others" }, works: ["o01"] }
     ]
@@ -192,7 +372,7 @@ const EXHIBITIONS = [
       { thumb: "", image: "", caption: { ko: "전시 전경 1", en: "Installation view 1" } },
       { thumb: "", image: "", caption: { ko: "전시 전경 2", en: "Installation view 2" } }
     ],
-    works: ["p01", "p02", "c01"]
+    works: ["p01","p01","p01","p01","p01","p01"]
   },
   {
     id: "ex-2025-composition",
