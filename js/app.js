@@ -1758,7 +1758,33 @@
       // 충분히 밀었거나(거리), 짧아도 빠르게 휙 넘겼으면(속도) 커밋
       const committed = (Math.abs(dx) > 60 || (Math.abs(dx) > 20 && velocity > 0.5)) && dirHasTarget;
 
-      if (committed) {
+      if (committed && dx > 0 && atExhibitionStart) {
+        // 이건 새 그림으로 넘어가는 게 아니라 전시 개요 페이지로 돌아가는 것뿐 -
+        // 같은 그림을 계속 보여주는 거니까 그림을 밀어냈다 다시 데려오는 대신,
+        // 그냥 제자리로 돌아오면서 배경 페이지만 조용히 바뀌도록 함
+        lbImage.style.transition = "transform 0.2s ease";
+        lbImage.style.transform = "";
+        [lbImagePeekNext, lbImagePeekPrev].forEach((el) => {
+          if (el.style.display === "none") return;
+          el.style.transition = "transform 0.2s ease";
+          el.style.transform = "translateX(0px)";
+        });
+        const finishReturn = () => {
+          lbImagePeekNext.style.display = "none";
+          lbImagePeekPrev.style.display = "none";
+          lbImagePeekNext.style.transition = "";
+          lbImagePeekPrev.style.transition = "";
+          lbImage.style.transition = "";
+          tryExhibitionBackToOverview();
+        };
+        pendingSwipeCommit = {
+          run: finishReturn,
+          timer: setTimeout(() => {
+            pendingSwipeCommit = null;
+            finishReturn();
+          }, 210)
+        };
+      } else if (committed) {
         // 충분히 밀었으면 - 실제로 움직인 방향으로 확정 (다음/이전은 방향에 따라 그때 결정)
         const dir = dx < 0 ? 1 : -1; // 1 = 다음 작품, -1 = 이전 작품
         const duration = 220;
@@ -2702,9 +2728,9 @@
     void grid.offsetWidth; // 강제 리플로우 - 트랜지션 없이 초기 위치를 먼저 확실히 반영시킴
     requestAnimationFrame(() => {
       els.forEach((el) => {
-        el.style.transition = "transform 0.22s ease";
+        el.style.transition = "transform 0.2s ease";
         el.style.transform = "";
-        setTimeout(() => { el.style.transition = ""; }, 240);
+        setTimeout(() => { el.style.transition = ""; }, 220);
       });
     });
   }
