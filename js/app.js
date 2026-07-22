@@ -667,8 +667,10 @@
           <a href="#/exhibition/${id}" class="back-link">← ${t(ex.title)}</a>
           <h1 class="detail-title">${label}</h1>
         </div>
-        <div class="grid grid-fullbleed">${itemsHtml}</div>
-        <div class="wrap"><div class="bleed-pager">${pagerHtml(baseHash, curPage, totalPages)}</div></div>
+        <div class="gallery-swipe-unit">
+          <div class="grid grid-fullbleed">${itemsHtml}</div>
+          <div class="wrap"><div class="bleed-pager">${pagerHtml(baseHash, curPage, totalPages)}</div></div>
+        </div>
       </section>`;
 
     document.body.classList.add("gallery-page");
@@ -739,8 +741,7 @@
           <h1 class="detail-title">${t(node.title)}</h1>
           ${innerBody}
         </div>
-        ${bleedGrid}
-        ${pagerStr ? `<div class="wrap"><div class="bleed-pager">${pagerStr}</div></div>` : ""}
+        ${bleedGrid ? `<div class="gallery-swipe-unit">${bleedGrid}${pagerStr ? `<div class="wrap"><div class="bleed-pager">${pagerStr}</div></div>` : ""}</div>` : ""}
       </section>`;
 
     attachThumbHandlers(app, "category", node.works || [], { type: "works", path: segments });
@@ -2720,78 +2721,43 @@
     return page > 1 ? `${baseHref}/page-${page}` : baseHref;
   }
 
-  // 요소를 화면 밖(정확히 경계에 걸치는 지점)으로 보내는 데 필요한 오프셋을 그 요소
-  // 자신의 실제 위치/너비 기준으로 계산함 - 화면 전체 폭인 그리드와, .wrap 안에
-  // 중앙정렬된 좁은 페이저는 같은 window.innerWidth를 적용하면 페이저가 필요 이상
-  // 멀리 밀려나서(오버슈트) 화면에 나타나기 시작하는 시점이 서로 어긋나 보이게 됨
-  function offsetToClearViewport(el, moveDir) {
-    const rect = el.getBoundingClientRect();
-    return moveDir > 0 ? (window.innerWidth - rect.left) : -(rect.left + rect.width);
-  }
-
   let pendingGalleryEnterDir = null;
 
   function applyPendingGalleryEnterAnimation() {
     if (pendingGalleryEnterDir == null) return;
     const dir = pendingGalleryEnterDir;
     pendingGalleryEnterDir = null;
-    const grid = document.querySelector(".grid.grid-fullbleed");
-    if (!grid) return;
-    const pager = document.querySelector(".bleed-pager");
-    const els = pager ? [grid, pager] : [grid];
-    els.forEach((el) => {
-      el.style.transition = "none";
-      el.style.transform = `translateX(${offsetToClearViewport(el, dir)}px)`;
-    });
-    void grid.offsetWidth; // 강제 리플로우 - 트랜지션 없이 초기 위치를 먼저 확실히 반영시킴
+    const unit = document.querySelector(".gallery-swipe-unit");
+    if (!unit) return;
+    unit.style.transition = "none";
+    unit.style.transform = `translateX(${dir * window.innerWidth}px)`;
+    void unit.offsetWidth; // 강제 리플로우 - 트랜지션 없이 초기 위치를 먼저 확실히 반영시킴
     requestAnimationFrame(() => {
-      els.forEach((el) => {
-        el.style.transition = "transform 0.2s ease";
-        el.style.transform = "";
-        setTimeout(() => { el.style.transition = ""; }, 220);
-      });
+      unit.style.transition = "transform 0.2s ease";
+      unit.style.transform = "";
+      setTimeout(() => { unit.style.transition = ""; }, 220);
     });
   }
 
   // 갤러리 페이지 자체를 손가락으로 좌우로 밀어서 다음/이전 페이지로 넘어감(라이트박스는 안 켜져 있을 때만)
+  // 그리드와 페이저를 각각 따로 옮기면 서로 위치/너비가 달라서 속도가 어긋나 보일 수 있으므로,
+  // 렌더링 단계에서 둘을 .gallery-swipe-unit 하나로 묶어두고 이 컨테이너 하나만 옮김
   (function setupGallerySwipe() {
-    let startX = 0, startY = 0, active = false, swiping = false, grid = null, pager = null;
+    let startX = 0, startY = 0, active = false, swiping = false, unit = null;
 
-    function getActiveGrid() {
+    function getActiveUnit() {
       if (lightbox.classList.contains("open")) return null;
       if (!document.body.classList.contains("gallery-page")) return null;
       if (!getCurrentGalleryPageInfo()) return null; // 페이지네이션이 없는 화면(전시 미리보기 등)은 제외
-      return document.querySelector(".grid.grid-fullbleed");
-    }
-
-    function setTransforms(transition, transform) {
-      grid.style.transition = transition;
-      grid.style.transform = transform;
-      if (pager) {
-        pager.style.transition = transition;
-        pager.style.transform = transform;
-      }
-    }
-
-    // 화면 밖으로 내보낼 때는 요소마다 자기 위치/너비 기준으로 오프셋을 개별 계산해야
-    // 그리드(화면 전체 폭)와 페이저(중앙정렬된 좁은 요소)가 같은 시점에 화면 경계를
-    // 벗어나기 시작해서 속도가 맞아 보임
-    function exitTransforms(moveDir) {
-      grid.style.transition = "transform 0.2s ease";
-      grid.style.transform = `translateX(${offsetToClearViewport(grid, moveDir)}px)`;
-      if (pager) {
-        pager.style.transition = "transform 0.2s ease";
-        pager.style.transform = `translateX(${offsetToClearViewport(pager, moveDir)}px)`;
-      }
+      return document.querySelector(".gallery-swipe-unit");
     }
 
     let startTime = 0;
 
     document.addEventListener("touchstart", (e) => {
       if (e.touches.length !== 1) { active = false; return; }
-      grid = getActiveGrid();
-      if (!grid) { active = false; return; }
-      pager = document.querySelector(".bleed-pager");
+      unit = getActiveUnit();
+      if (!unit) { active = false; return; }
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
       startTime = Date.now();
@@ -2800,18 +2766,19 @@
     }, { passive: true });
 
     document.addEventListener("touchmove", (e) => {
-      if (!active || e.touches.length !== 1 || !grid) return;
+      if (!active || e.touches.length !== 1 || !unit) return;
       const dx = e.touches[0].clientX - startX;
       const dy = e.touches[0].clientY - startY;
       if (Math.abs(dx) <= Math.abs(dy)) return;
       swiping = true;
-      setTransforms("none", `translateX(${dx}px)`);
+      unit.style.transition = "none";
+      unit.style.transform = `translateX(${dx}px)`;
     }, { passive: true });
 
     document.addEventListener("touchend", (e) => {
       if (!active) return;
       active = false;
-      if (!swiping || !grid) return;
+      if (!swiping || !unit) return;
       swiping = false;
       const touch = e.changedTouches[0];
       const dx = touch.clientX - startX;
@@ -2825,7 +2792,8 @@
         const dir = dx < 0 ? 1 : -1; // 1 = 다음 페이지, -1 = 이전 페이지
         const targetPage = info.curPage + dir;
         if (targetPage >= 1 && targetPage <= info.totalPages) {
-          exitTransforms(-dir);
+          unit.style.transition = "transform 0.2s ease";
+          unit.style.transform = `translateX(${dir * -window.innerWidth}px)`;
           pendingGalleryEnterDir = dir;
           setTimeout(() => { location.hash = galleryPageHref(info.baseHref, targetPage); }, 190);
           return;
@@ -2834,13 +2802,15 @@
           // 더보기 첫 페이지에서 더 뒤로 밀면 전시 개요 페이지로 돌아감
           const kind = info.baseHref.split("/").pop();
           pendingKeyboardEdgeFocus = { edge: "first", kind };
-          exitTransforms(1);
+          unit.style.transition = "transform 0.2s ease";
+          unit.style.transform = `translateX(${window.innerWidth}px)`;
           setTimeout(() => { location.hash = `#/exhibition/${info.exhibitionId}`; }, 190);
           return;
         }
       }
       // 덜 밀었거나 더 갈 페이지가 없으면 제자리로
-      setTransforms("transform 0.2s ease", "");
+      unit.style.transition = "transform 0.2s ease";
+      unit.style.transform = "";
     });
   })();
 

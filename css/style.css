@@ -548,6 +548,8 @@ img { max-width: 100%; display: block; }
    (화면이 1600px보다 좁아지면 자연히 .wrap과 같은 폭이 되어 동일하게 동작) */
 body.gallery-page { touch-action: pan-y; }
 
+.gallery-swipe-unit { display: block; }
+
 .grid-fullbleed {
   padding-left: max(32px, calc((100vw - 1600px) / 2 + 32px));
   padding-right: max(32px, calc((100vw - 1600px) / 2 + 32px));
