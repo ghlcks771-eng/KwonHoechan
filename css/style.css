@@ -418,7 +418,7 @@ img { max-width: 100%; display: block; }
 
 .cat-item-title {
   font-family: var(--font-display);
-  font-size: 24px;
+  font-size: 19px;
   color: inherit;
 }
 
@@ -427,7 +427,7 @@ img { max-width: 100%; display: block; }
 .detail-title {
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: 32px;
+  font-size: 27px;
   margin: 0 0 28px;
 }
 
