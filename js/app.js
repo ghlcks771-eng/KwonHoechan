@@ -292,20 +292,68 @@
     return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 
+  // 검색 매칭/표시용으로 서식 기호(**볼드**, *이탤릭*, _밑줄_, [링크](주소))를 제거한
+  // 순수 텍스트를 만듦 - 이걸 안 하면 "*중요한* 그림이다"에서 별표가 "중요한 그림이다"라는
+  // 연속된 검색어 매칭을 깨뜨리고, 결과 화면에도 별표가 그대로 노출돼버림
+  function stripFormatting(text) {
+    return (text || "")
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, "$1")
+      .replace(/\*\*([^*\n]+)\*\*/g, "$1")
+      .replace(/\*([^*\n]+)\*/g, "$1")
+      .replace(/_([^_\n]+)_/g, "$1");
+  }
+
   function renderInline(text) {
     const escaped = escapeHtml(text);
-    return escaped.replace(
+    let html = escaped.replace(
       /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
       '<a href="$2" target="_blank" rel="noopener" class="inline-link">$1</a>'
     );
+    // 볼드체: **글자** -> 굵게. 이탤릭(별표 1개)보다 먼저 처리해야 겹치지 않음
+    html = html.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
+    // 이탤릭: *글자* -> 기울임체. 줄바꿈을 사이에 두고 걸치진 않게 함
+    html = html.replace(/\*([^*\n]+)\*/g, "<em>$1</em>");
+    // 밑줄: _글자_ -> 밑줄
+    html = html.replace(/_([^_\n]+)_/g, "<u>$1</u>");
+    return html;
+  }
+
+  // 문단 앞에 [center]/[left]/[right]를 쓰면 그 문단만 정렬이 바뀜(표시는 지워짐).
+  // 아무 표시가 없으면 기존 그대로 양쪽정렬(justify) 유지
+  function extractAlignment(paragraph) {
+    const m = /^\[(center|left|right)\]\s*/i.exec(paragraph);
+    if (!m) return { text: paragraph, align: null };
+    return { text: paragraph.slice(m[0].length), align: m[1].toLowerCase() };
+  }
+
+  // 줄바꿈 2개 이상을 문단 구분으로 삼되, 그 개수(구분자 자체)도 캡처해서 세어둠 -
+  // 2개(기본 문단 간격)를 넘는 만큼은 문단 위쪽에 여백을 추가로 줌(빈 줄을 더 넣은 만큼 벌어짐)
+  function splitParagraphsWithFormatting(text) {
+    const parts = (text || "").split(/(\n{2,})/);
+    const paragraphs = [];
+    let pendingBreaks = 0;
+    parts.forEach((part, i) => {
+      if (i % 2 === 1) { pendingBreaks = Math.max(0, part.length - 2); return; } // 기본 2개는 문단 구분용, 그 이상만 추가 줄바꿈으로 남김
+      if (!part.trim()) return;
+      paragraphs.push({ text: part, leadingBreaks: pendingBreaks });
+      pendingBreaks = 0;
+    });
+    return paragraphs;
+  }
+
+  function renderParagraphsHtml(text) {
+    return splitParagraphsWithFormatting(text).map(({ text: p, leadingBreaks }) => {
+      const { text: content, align } = extractAlignment(p);
+      const alignClass = align ? ` class="align-${align}"` : "";
+      // 문단 안에서 쓴 단순 줄바꿈(\n 하나)도 그대로 <br>로 보이게 함
+      const withBreaks = renderInline(content).replace(/\n/g, "<br>");
+      const extraBr = leadingBreaks ? "<br>".repeat(leadingBreaks) : "";
+      return `<p${alignClass}>${extraBr}${withBreaks}</p>`;
+    }).join("");
   }
 
   function renderParagraphs(text) {
-    return (text || "")
-      .split(/\n\n+/)
-      .filter((p) => p.trim())
-      .map((p) => `<p>${renderInline(p)}</p>`)
-      .join("");
+    return renderParagraphsHtml(text);
   }
 
   // 각주 시스템 - 본문에 [^각주 내용] 이렇게 쓰면 그 자리에 작은 위첨자 번호가 자동으로 붙고,
@@ -387,11 +435,7 @@
     // 1.5단계: 유일한 작품 제목도 같은 방식으로 플레이스홀더 처리
     withPlaceholders = autoLinkWorkTitles(withPlaceholders, mentions);
 
-    let bodyHtml = withPlaceholders
-      .split(/\n\n+/)
-      .filter((p) => p.trim())
-      .map((p) => `<p>${renderInline(p)}</p>`)
-      .join("");
+    let bodyHtml = renderParagraphsHtml(withPlaceholders);
 
     // 2단계: 플레이스홀더를 실제 위첨자 각주 번호 링크로 치환
     bodyHtml = bodyHtml.replace(/@@FN(\d+)@@/g, (match, num) =>
@@ -509,20 +553,36 @@
     });
   }
 
+  // 전시를 시간순(오래된 것부터)으로 정렬 - 같은 연도에 여러 전시가 있으면 서문 글의
+  // 날짜(POSTS의 date 필드)로 세부 정렬함. 서문이 없거나 날짜가 없으면 그 해 1월 1일로 취급
+  function getExhibitionEssayDate(ex) {
+    const essayId = (ex.essayPostIds || [])[0];
+    const post = essayId ? POSTS[essayId] : null;
+    return (post && post.date) || `${ex.year}-01-01`;
+  }
+
+  function exhibitionChronoSort(a, b) {
+    const yearDiff = Number(a.year) - Number(b.year);
+    if (yearDiff !== 0) return yearDiff;
+    return getExhibitionEssayDate(a).localeCompare(getExhibitionEssayDate(b));
+  }
+
   function findExhibitionsCitingPost(postId) {
     return EXHIBITIONS.filter((ex) =>
       (ex.essayPostIds || []).includes(postId) || (ex.criticPostIds || []).includes(postId)
-    );
+    ).slice().sort(exhibitionChronoSort);
   }
 
   function postRefCard(postId) {
     const p = POSTS[postId];
     if (!p) return "";
+    const author = renderInline(t(p.author));
+    const meta = author ? `${p.date} · ${author}` : p.date;
     return `
       <li class="ref-item">
         <a href="#/text/post/${postId}">
-          <span class="ref-title">${t(p.title)}</span>
-          <span class="ref-meta">${t(p.author)} · ${p.date}</span>
+          <span class="ref-title">${renderInline(t(p.title))}</span>
+          <span class="ref-meta">${meta}</span>
         </a>
       </li>`;
   }
@@ -537,22 +597,22 @@
         ${PROFILE.education.map((e) => `<p class="cv-profile-line">${t(e)}</p>`).join("")}
       </div>`;
 
-    const groups = [
-      { key: "solo", label: ui("cvSolo") },
-      { key: "group", label: ui("cvGroup") },
-      { key: "critic", label: ui("cvCritic") }
-    ];
+    const groups = CV_GROUPS;
 
     const sections = groups.map((g) => {
-      const items = EXHIBITIONS.filter((ex) => ex.type === g.key);
+      const items = EXHIBITIONS.filter((ex) => ex.type === g.id);
       if (!items.length) return "";
-      const rows = items.map((ex) => `
-        <li class="cv-item">
+      const rows = items.map((ex, i) => {
+        // 바로 앞 항목과 연도가 다르면(=연도가 바뀌는 지점) 살짝 위쪽 여백을 줌
+        const yearBreak = i > 0 && items[i - 1].year !== ex.year;
+        return `
+        <li class="cv-item${yearBreak ? " cv-year-break" : ""}">
           <a href="#/exhibition/${ex.id}" class="cv-link">
-            <span class="cv-line">${ex.year}, ${t(ex.title)}, ${t(ex.venue)}${ex.city ? `, ${t(ex.city)}` : ""}</span>
+            <span class="cv-line"><span class="cv-year-col">${ex.year}</span><span class="cv-rest-col">${t(ex.title)}, ${t(ex.venue)}${ex.city ? `, ${t(ex.city)}` : ""}</span></span>
           </a>
-        </li>`).join("");
-      return `<h2 class="cv-group-label">${g.label}</h2><ul class="cv-list">${rows}</ul>`;
+        </li>`;
+      }).join("");
+      return `<h2 class="cv-group-label">${t(g.label)}</h2><ul class="cv-list">${rows}</ul>`;
     }).join("");
 
     app.innerHTML = `
@@ -777,17 +837,21 @@
       body = `<ul class="cat-list">${node.children.map((c) => `
         <li class="cat-item"><a href="#/text/${segments.concat(c.id).join("/")}">${t(c.title)}</a></li>`).join("")}</ul>`;
     } else {
-      const all = node.posts || [];
+      const all = (node.posts || [])
+        .slice()
+        .sort((a, b) => (POSTS[b] && POSTS[b].date || "").localeCompare(POSTS[a] && POSTS[a].date || ""));
       const { pageItems, page: curPage, totalPages } = paginate(all, page, 10);
       const rows = pageItems.map((pid) => {
         const p = POSTS[pid];
         if (!p) return "";
+        const author = renderInline(t(p.author));
+        const meta = author ? `${p.date} · ${author}` : p.date;
         return `
           <li class="text-item">
             <a href="#/text/post/${pid}">
-              <span class="text-item-title">${t(p.title)}</span>
-              <span class="text-item-meta">${t(p.author)} · ${p.date}</span>
-              <span class="text-item-excerpt">${t(p.excerpt)}</span>
+              <span class="text-item-title">${renderInline(t(p.title))}</span>
+              <span class="text-item-excerpt">${renderInline(t(p.excerpt))}</span>
+              <span class="text-item-meta">${meta}</span>
             </a>
           </li>`;
       }).join("");
@@ -814,8 +878,8 @@
 
     const citingExhibitions = findExhibitionsCitingPost(postId);
     const exploreLinksHtml = citingExhibitions.length
-      ? `<div class="post-explore-links">${citingExhibitions.map((ex, i) => `
-          <a href="#/exhibition/${ex.id}">${citingExhibitions.length > 1 ? `${ui("exploreExhibition")} ${i + 1}→` : `${ui("exploreExhibition")}→`}</a>`).join("")}</div>`
+      ? `<div class="post-explore-links">${citingExhibitions.map((ex) => `
+          <a href="#/exhibition/${ex.id}">${ex.year} ${t(ex.title)}, ${t(ex.venue)}</a>`).join("")}</div>`
       : "";
 
     const rawBody = t(post.body);
@@ -833,8 +897,8 @@
         <div class="wrap narrow">
           ${breadcrumbHtml(trail, "text", ui("textLabel"))}
           ${exploreLinksHtml}
-          <h1 class="post-title">${t(post.title)}</h1>
-          <p class="post-meta">${t(post.author)} · ${post.date}</p>
+          <h1 class="post-title">${renderInline(t(post.title))}</h1>
+          <p class="post-meta">${t(post.author) ? `${post.date} · ${renderInline(t(post.author))}` : post.date}</p>
           <div class="statement">${renderBodyWithFootnotes(rawBody, bodyHighlightQuery)}</div>
         </div>
       </section>`;
@@ -903,11 +967,11 @@
           node.posts.forEach((pid) => {
             const p = POSTS[pid];
             if (!p) return;
-            const title = t(p.title);
-            const author = t(p.author);
+            const title = stripFormatting(t(p.title));
+            const author = stripFormatting(t(p.author));
             const date = p.date || "";
-            const excerpt = t(p.excerpt);
-            const body = t(p.body);
+            const excerpt = stripFormatting(t(p.excerpt));
+            const body = stripFormatting(t(p.body));
             const titleMatch = title.toLowerCase().includes(q);
             const fieldOrder = [["author", author], ["date", date], ["excerpt", excerpt], ["body", body]];
             let matched = null;
@@ -1546,13 +1610,35 @@
   const lbImagePeekPrev = document.getElementById("lb-image-peek-prev");
   const lbImagePeekNext = document.getElementById("lb-image-peek-next");
 
-  function getItemImageSrc(item) {
+  // 대표 이미지 + subImages(부속 이미지 다발)를 하나의 목록으로 - subImages가 없으면
+  // 대표 이미지 하나짜리 목록
+  function getWorkSubImages(workId) {
+    const w = WORKS[workId];
+    if (!w) return [];
+    return [w.image, ...(w.subImages || [])];
+  }
+
+  function getItemImageSrc(item, subIndex) {
     if (!item) return "";
     if (item.kind === "work") {
-      const w = WORKS[item.id];
-      return w ? w.image : "";
+      const subs = getWorkSubImages(item.id);
+      return subs[subIndex || 0] || subs[0] || "";
     }
     return item.image || "";
+  }
+
+  // 지금 보고 있는 작품(work) 기준으로, 좌/우 한 스텝 이동했을 때의 결과를 계산함
+  //  - { type: "sub", subIndex } : 같은 작품의 부속 이미지로 이동(그리드는 안 넘어감)
+  //  - { type: "cross" } : 부속 이미지를 다 봤으니(혹은 애초에 없으니) 다음/이전 그리드
+  //                        작품으로 넘어가야 함 - 기존 로직 그대로 처리
+  function resolveSubStep(direction) {
+    const item = lightboxItems[lightboxIndex];
+    if (!item || item.kind !== "work") return { type: "cross" };
+    const subs = getWorkSubImages(item.id);
+    if (subs.length <= 1) return { type: "cross" };
+    const nextSub = lightboxSubIndex + direction;
+    if (nextSub < 0 || nextSub >= subs.length) return { type: "cross" };
+    return { type: "sub", subIndex: nextSub };
   }
 
   // 다음/이전 그림의 실제 크기(가로세로 비율)를 미리 알아둬서, 스와이프 미리보기가
@@ -1567,11 +1653,21 @@
   }
 
   function preloadNeighborDims() {
-    if (lightboxItems.length < 2) return;
-    const nextIdx = (lightboxIndex + 1) % lightboxItems.length;
-    const prevIdx = (lightboxIndex - 1 + lightboxItems.length) % lightboxItems.length;
-    preloadDims(getItemImageSrc(lightboxItems[nextIdx]));
-    preloadDims(getItemImageSrc(lightboxItems[prevIdx]));
+    if (lightboxItems.length < 2 && !(lightboxItems[lightboxIndex] && lightboxItems[lightboxIndex].kind === "work")) return;
+    const nextStep = resolveSubStep(1);
+    const prevStep = resolveSubStep(-1);
+    if (nextStep.type === "sub") {
+      preloadDims(getItemImageSrc(lightboxItems[lightboxIndex], nextStep.subIndex));
+    } else if (lightboxItems.length > 1) {
+      const nextIdx = (lightboxIndex + 1) % lightboxItems.length;
+      preloadDims(getItemImageSrc(lightboxItems[nextIdx]));
+    }
+    if (prevStep.type === "sub") {
+      preloadDims(getItemImageSrc(lightboxItems[lightboxIndex], prevStep.subIndex));
+    } else if (lightboxItems.length > 1) {
+      const prevIdx = (lightboxIndex - 1 + lightboxItems.length) % lightboxItems.length;
+      preloadDims(getItemImageSrc(lightboxItems[prevIdx]));
+    }
   }
 
   // 확대 안 된 상태 - 좌우로 스와이프하면 손가락을 따라 실시간으로 그림이 움직이고,
@@ -1675,16 +1771,39 @@
       nextGap = imgWidth + 24;
       prevGap = imgWidth + 24;
 
-      if (lightboxItems.length > 1) {
-        const atExhibitionStart = lightboxSource && lightboxSource.type === "exhibition" && lightboxIndex === 0;
-        const nextIndex = (lightboxIndex + 1) % lightboxItems.length;
-        const prevIndex = atExhibitionStart ? -1 : (lightboxIndex - 1 + lightboxItems.length) % lightboxItems.length;
-        const nextSrc = getItemImageSrc(lightboxItems[nextIndex]);
-        const prevSrc = prevIndex >= 0 ? getItemImageSrc(lightboxItems[prevIndex]) : "";
+      if (lightboxItems.length > 1 || (lightboxItems[lightboxIndex] && lightboxItems[lightboxIndex].kind === "work")) {
+        const nextStep = resolveSubStep(1);
+        const prevStep = resolveSubStep(-1);
+        const atExhibitionStart = lightboxSource && lightboxSource.type === "exhibition" && lightboxIndex === 0 && prevStep.type === "cross";
+
+        let nextSrc = "";
+        if (nextStep.type === "sub") {
+          nextSrc = getItemImageSrc(lightboxItems[lightboxIndex], nextStep.subIndex);
+        } else if (lightboxItems.length > 1) {
+          const nextIndex = (lightboxIndex + 1) % lightboxItems.length;
+          nextSrc = getItemImageSrc(lightboxItems[nextIndex]);
+        }
+
+        let prevSrc = "";
+        const hasPrevIndex = prevStep.type === "sub" || (!atExhibitionStart && lightboxItems.length > 1);
+        if (prevStep.type === "sub") {
+          prevSrc = getItemImageSrc(lightboxItems[lightboxIndex], prevStep.subIndex);
+        } else if (hasPrevIndex) {
+          const prevIndex = (lightboxIndex - 1 + lightboxItems.length) % lightboxItems.length;
+          const prevItem = lightboxItems[prevIndex];
+          // 뒤로 가면서 부속 이미지 있는 작품으로 새로 들어가는 거면, 그 작품의 마지막
+          // 부속 이미지를 미리 보여줘야 실제로 넘어갔을 때(자연스러운 방향)와 일치함
+          if (prevItem && prevItem.kind === "work") {
+            const prevSubs = getWorkSubImages(prevItem.id);
+            prevSrc = prevSubs[prevSubs.length - 1] || prevSubs[0] || "";
+          } else {
+            prevSrc = getItemImageSrc(prevItem);
+          }
+        }
 
         [
           { el: lbImagePeekNext, hasIndex: true, src: nextSrc, offset: nextGap },
-          { el: lbImagePeekPrev, hasIndex: prevIndex >= 0, src: prevSrc, offset: -prevGap }
+          { el: lbImagePeekPrev, hasIndex: hasPrevIndex, src: prevSrc, offset: -prevGap }
         ].forEach(({ el, hasIndex, src, offset }) => {
           // 진짜로 갈 곳이 없는 경우(전시 경계 등)만 숨김 - 그 항목에 이미지가 없을 뿐인
           // 경우는 자리표시자로 계속 보이게 해서 그 방향 스와이프가 막히지 않도록 함
@@ -1761,9 +1880,10 @@
       const velocity = Math.abs(dx) / elapsed; // px/ms
       const hasNext = lbImagePeekNext.style.display !== "none";
       const hasPrev = lbImagePeekPrev.style.display !== "none";
-      // 전시 첫 그림에서 더 이전으로 가는 경우, 보여줄 미리보기 그림은 없지만
-      // (전시 개요 페이지로 돌아가는 거라) 유효한 목적지이므로 막으면 안 됨
-      const atExhibitionStart = lightboxSource && lightboxSource.type === "exhibition" && lightboxIndex === 0;
+      // 전시 첫 그림(부속 이미지 그룹의 첫 대표 이미지 기준)에서 더 이전으로 가는 경우,
+      // 보여줄 미리보기 그림은 없지만(전시 개요 페이지로 돌아가는 거라) 유효한 목적지이므로 막으면 안 됨
+      const atExhibitionStart = lightboxSource && lightboxSource.type === "exhibition" && lightboxIndex === 0
+        && resolveSubStep(-1).type === "cross";
       const dirHasTarget = dx < 0 ? hasNext : (hasPrev || atExhibitionStart);
       // 충분히 밀었거나(거리), 짧아도 빠르게 휙 넘겼으면(속도) 커밋
       const committed = (Math.abs(dx) > 60 || (Math.abs(dx) > 20 && velocity > 0.5)) && dirHasTarget;
@@ -1803,7 +1923,6 @@
         const winnerGap = dir > 0 ? nextGap : prevGap;
         const hasWinner = dir > 0 ? hasNext : hasPrev;
 
-        const targetIndex = lightboxIndex + dir;
         lbImage.style.transition = `transform ${duration}ms ease`;
         lbImage.style.transform = `translateX(${dir * -window.innerWidth}px)`;
         if (hasWinner) {
@@ -1820,7 +1939,7 @@
           lbImagePeekPrev.style.transition = "";
           lbImage.style.transition = "none";
           lbImage.style.transform = ""; // 남아있던 이동값 제거 - 다음 제스처가 항상 제자리에서 시작하도록
-          showLightboxAt(targetIndex);
+          stepLightboxHorizontal(dir); // 부속 이미지 그룹 안이면 그 안에서, 아니면 옆 작품으로
         };
         pendingSwipeCommit = {
           run: finishCommit,
@@ -1855,6 +1974,22 @@
     }
   });
 
+  // 캡션이 애매한 길이(좁은 420px 폭엔 못 들어가지만, 조금만 더 넓히면 한 줄에 들어가는
+  // 경우)일 때만 더 넓은 폭으로 전환함 - 진짜 긴 캡션은 원래대로 좁은 폭에서 여러 줄로 감쌈
+  function adjustCaptionWidthMode() {
+    lbInfo.classList.remove("lb-info-wide");
+    const prevWhiteSpace = lbCaptionLine.style.whiteSpace;
+    lbCaptionLine.style.whiteSpace = "nowrap"; // 줄바꿈 없이 자연스러운 폭을 재기 위해 잠깐 적용
+    const naturalWidth = lbCaptionLine.scrollWidth;
+    lbCaptionLine.style.whiteSpace = prevWhiteSpace;
+
+    const narrowCap = 420;
+    const wideCap = Math.min(700, window.innerWidth - 80);
+    if (naturalWidth > narrowCap && naturalWidth <= wideCap) {
+      lbInfo.classList.add("lb-info-wide");
+    }
+  }
+
   function openLightboxRaw({ image, title, artist, meta, note, links }) {
     resetZoom();
     if (image) {
@@ -1878,6 +2013,7 @@
     if (artist) parts.push(escapeHtml(artist));
     if (meta) parts.push(escapeHtml(meta));
     lbCaptionLine.innerHTML = parts.join(", ");
+    adjustCaptionWidthMode();
 
     lbNote.textContent = note || "";
     lbNote.style.display = note ? "" : "none";
@@ -1905,6 +2041,9 @@
   let lightboxItems = []; // { kind: "work", id } 또는 { kind: "install", image, caption } 배열
   let lightboxIndex = -1;
   let lightboxContext = null;
+  // 지금 보고 있는 작품(work)이 subImages(부속 이미지 다발)를 갖고 있을 때, 그중 몇 번째를
+  // 보고 있는지 (0 = 대표 이미지, 1부터 = subImages[0], subImages[1]...)
+  let lightboxSubIndex = 0;
 
   function openLightboxItem(item) {
     if (!item) return;
@@ -1912,41 +2051,44 @@
     if (item.kind === "work") {
       const w = WORKS[item.id];
       if (!w) return;
+      const subs = getWorkSubImages(item.id);
+      const currentSrc = subs[lightboxSubIndex] || subs[0] || w.image;
       let links = [];
       if (lightboxContext === "exhibition") {
-        links = [{ href: workGalleryHref(item.id), label: `${ui("exploreWork")}→`, kind: "work", workId: item.id }];
+        links = [{ href: workGalleryHref(item.id), label: `${ui("exploreWork")}`, kind: "work", workId: item.id }];
       } else {
         const list2 = EXHIBITIONS
           .filter((ex) => (ex.works || []).includes(item.id))
           .slice()
-          .sort((a, b) => Number(b.year) - Number(a.year));
-        links = list2.map((ex, i) => ({
+          .sort(exhibitionChronoSort);
+        links = list2.map((ex) => ({
           href: `#/exhibition/${ex.id}`,
-          label: list2.length > 1 ? `${ui("exploreExhibition")} ${i + 1}→` : `${ui("exploreExhibition")}→`
+          label: `${ex.year} ${t(ex.title)}, ${t(ex.venue)}`
         }));
       }
 
       // 이 작품을 인용한 글이 있으면 "글 찾아보기" 링크도 추가 (여러 개면 번호 매김)
+      // - 대표 이미지든 부속 이미지든 작품 id 기준이라 동일하게 뜸
       const citingPosts = findPostsMentioningWork(item.id);
       citingPosts.forEach((postId, i) => {
         links.push({
           href: `#/text/post/${postId}`,
-          label: citingPosts.length > 1 ? `${ui("exploreWriting")} ${i + 1}→` : `${ui("exploreWriting")}→`,
+          label: citingPosts.length > 1 ? `${ui("exploreWriting")} ${i + 1}` : `${ui("exploreWriting")}`,
           kind: "post",
           workId: item.id
         });
       });
 
       openLightboxRaw({
-        image: w.image,
+        image: currentSrc,
         title: t(w.title),
         artist: t(w.artist),
-        meta: `${w.year}, ${t(w.medium)}, ${w.size}`,
+        meta: `${w.year}, ${t(w.medium)}, ${w.size}${subs.length > 1 ? ` — ${lightboxSubIndex + 1} / ${subs.length}` : ""}`,
         note: t(w.note),
         links
       });
     } else if (item.kind === "install") {
-      openLightboxRaw({ image: item.image, title: item.caption || "", artist: "", meta: "", note: "", links: [] });
+      openLightboxRaw({ image: item.image, title: item.caption || "", artist: "", meta: "", note: item.note || "", links: [] });
     }
   }
 
@@ -1959,11 +2101,13 @@
       lightboxContext = context;
       lightboxSource = source || null;
     }
+    lightboxSubIndex = 0; // 새로 여는 거니까 항상 대표 이미지부터
     openLightboxItem({ kind: "work", id });
   }
 
   function openInstallLightbox(index, images, source) {
-    lightboxItems = images.map((img) => ({ kind: "install", image: img.image, caption: t(img.caption) }));
+    lightboxSubIndex = 0;
+    lightboxItems = images.map((img) => ({ kind: "install", image: img.image, caption: t(img.caption), note: t(img.note) }));
     lightboxIndex = index;
     lightboxContext = "install";
     lightboxSource = source || null;
@@ -1983,7 +2127,12 @@
   // 해당 카드가 지금 페이지에 없으면(다른 페이지에 있으면) 그냥 건너뜀.
   function syncGridScrollToCurrent() {
     const card = findCurrentLightboxCard();
-    if (card) scrollElementToCenter(card);
+    if (card) {
+      scrollElementToCenter(card);
+      // 스크롤뿐 아니라 키보드 포커스도 계속 따라다니게 함 - 이러면 라이트박스를 어떻게
+      // 닫든(X, 뒤로가기, 백스페이스) 그 순간의 카드가 이미 포커스돼있어서 따로 보정할 필요가 없음
+      card.focus({ preventScroll: true });
+    }
   }
 
   // 현재 보고 있는 그림이 속한 그리드의 실제 열 개수를 구함(그리드가 여러 개인 페이지에서도
@@ -2027,22 +2176,46 @@
     lightboxLastKnownHref = location.href;
   }
 
+  let lightboxSyncToken = 0;
+
   function applyPendingLightboxSync() {
     if (!pendingLightboxSync) return;
     pendingLightboxSync = false;
     if (!lightbox.classList.contains("open")) return;
-    // DOM이 막 삽입된 직후라 레이아웃이 덜 잡혔을 수 있으므로, 한 프레임 늦춰서 확실하게 스크롤
-    requestAnimationFrame(() => syncGridScrollToCurrent());
+    // 고정된 프레임 수를 추측하는 대신, 카드 위치(레이아웃)가 실제로 멈출 때까지 프레임마다
+    // 확인하다가 안정되면 그때 스크롤함 - 이미지가 몇 개든 몇십 개든 항상 정확하게 맞음.
+    // 토큰으로 이 대기를 식별해두고, 그 사이 더 최근 페이지 이동이 발생하면(토큰이 달라짐)
+    // 예전 대기는 조용히 스스로 멈춰서 겹동작이 벌어지지 않게 함
+    const myToken = ++lightboxSyncToken;
+    waitForStableCardThenSync(myToken, null, 0, 0);
+  }
+
+  function waitForStableCardThenSync(token, lastKey, stableCount, frame) {
+    if (token !== lightboxSyncToken) return; // 더 최근 페이지 이동에 의해 무효화됨
+    frame++;
+    const card = findCurrentLightboxCard();
+    if (!card) {
+      requestAnimationFrame(() => waitForStableCardThenSync(token, lastKey, stableCount, frame));
+      return;
+    }
+    const rect = card.getBoundingClientRect();
+    const key = `${rect.top},${rect.left},${rect.height}`;
+    stableCount = key === lastKey ? stableCount + 1 : 0;
+    if (stableCount >= 2) { // 두 프레임 연속 안 움직였으면 안정된 것으로 판단
+      syncGridScrollToCurrent();
+      return;
+    }
+    requestAnimationFrame(() => waitForStableCardThenSync(token, key, stableCount, frame));
   }
 
   // 인덱스로 이동 - 이미지는 페이지 전환 여부와 무관하게 즉시 바뀌고(라이트박스는 계속 열려있으니
   // 사용자는 페이지가 넘어가는 걸 보지 못함), 배경 카드가 지금 페이지에 없으면 자동으로 그 페이지로 이동
   function goToLightboxIndex(target) {
+    if (target !== lightboxIndex) lightboxSubIndex = 0;
     lightboxIndex = target;
     openLightboxItem(lightboxItems[target]);
-    const card = findCurrentLightboxCard();
-    if (card) {
-      scrollElementToCenter(card);
+    if (findCurrentLightboxCard()) {
+      syncGridScrollToCurrent();
     } else {
       crossPageLightboxNav(target);
     }
@@ -2091,6 +2264,33 @@
     goToLightboxIndex(wrapped);
   }
 
+  // 좌/우(그리고 스와이프)로 한 스텝 이동 - 지금 작품이 부속 이미지 다발을 갖고 있으면
+  // 먼저 그 안에서 이동하고, 다 봤을 때만(혹은 애초에 다발이 없으면) 옆 그리드 작품으로 넘어감.
+  // 뒤로 가면서 부속 이미지 있는 작품으로 새로 들어가면, 자연스러운 방향이라 그 마지막
+  // 부속 이미지에서 시작함(처음부터가 아니라)
+  function stepLightboxHorizontal(direction) {
+    const step = resolveSubStep(direction);
+    if (step.type === "sub") {
+      lightboxSubIndex = step.subIndex;
+      openLightboxItem(lightboxItems[lightboxIndex]);
+      syncGridScrollToCurrent();
+      return;
+    }
+    const prevIndex = lightboxIndex;
+    lightboxSubIndex = 0;
+    showLightboxAt(lightboxIndex + direction);
+    if (direction < 0 && lightboxIndex !== prevIndex) {
+      const newItem = lightboxItems[lightboxIndex];
+      if (newItem && newItem.kind === "work") {
+        const subs = getWorkSubImages(newItem.id);
+        if (subs.length > 1) {
+          lightboxSubIndex = subs.length - 1;
+          openLightboxItem(newItem);
+        }
+      }
+    }
+  }
+
   // 위/아래 화살표 전용 - 그리드처럼 한 줄 통째로 건너뛰되, 페이지 넘김은 좌/우·스와이프만의
   // 역할이므로 위/아래는 "지금 실제로 보이는 범위" 안에서만 움직임. 이미 그 범위의
   // 끝/처음이면 좌우와 같은 방식으로 다음/이전 페이지(혹은 전시 개요)로 넘어감
@@ -2132,20 +2332,33 @@
 
   function closeLightbox() {
     if (lightboxHistoryPushed) {
-      lightboxHistoryPushed = false;
-      // history.back()을 쓰면 라이트박스를 열기 전 위치로 점프해버려서, 그 안에서
-      // 페이지를 넘나든 게 다 무의미해짐 - 대신 지금 URL은 그대로 두고 표식만 정리
-      // (실제 모바일 뒤로가기 버튼은 popstate 핸들러가 따로 처리하니 여기엔 영향 없음)
-      history.replaceState(null, "", location.href);
+      // replaceState로 표식만 지우면, 열 때 쌓아둔 히스토리 한 칸이 그대로 안 지워지고
+      // 남아있어서 "열고 닫고"를 반복할 때마다 안 보이는 죽은 칸이 계속 쌓임 - 실제로
+      // 한 칸 뒤로 가서(history.back()) 그 칸을 확실히 소비시키고, popstate 핸들러가
+      // 이어서 닫기+위치 복원을 처리하도록 함(실제 뒤로가기 버튼과 동일한 경로로 통일)
+      history.back();
+      return;
     }
     lightboxLastKnownHref = null;
     doCloseLightbox();
   }
 
   function doCloseLightbox() {
+    // 닫히는 라이트박스 안의 요소(닫기 버튼, 각주 이동 글자, 전시/글 찾아보기 링크 등)에
+    // 초점이 남아있으면, 나중에 백스페이스를 눌러도 그 요소가 계속 초점을 쥐고 있어서
+    // 뒤로가기가 조용히 씹히는 것처럼 보일 수 있음 - 닫을 때 확실히 풀어줌
+    if (document.activeElement && lightbox.contains(document.activeElement)) {
+      document.activeElement.blur();
+    }
     lightbox.classList.remove("open");
     document.body.style.overflow = "";
     document.body.classList.remove("lightbox-active");
+    // resetZoom()은 이미지가 완전히 로드된 상태에서만 리셋하는 조건이 있어서, 그 타이밍이
+    // 애매하게 걸리면 확대/이동 상태가 그대로 남을 수 있음 - 닫을 때는 조건 없이 확실하게
+    // scale과 남아있는 transform부터 지워둠
+    scale = 1;
+    lbImage.style.transition = "none";
+    lbImage.style.transform = "";
     resetZoom();
   }
 
@@ -2163,13 +2376,20 @@
 
   window.addEventListener("popstate", () => {
     if (lightbox.classList.contains("open")) {
+      // 이 뒤로가기 때문에 뒤이어 발생할 hashchange에서, 스크롤 기억 기능(routeWithMemory)이
+      // 끼어들어 지금 여기서 복원할 위치를 덮어써버리면 안 되므로 미리 억제해둠
+      suppressRouteWithMemory = true;
       lightboxHistoryPushed = false;
       doCloseLightbox();
       // 뒤로가기는 라이트박스를 열기 전의 원래 위치로 점프해버리는데, 그 사이 스와이프/방향키로
       // 다른 페이지까지 이동했었다면 그 위치를 잃어버림 - 마지막으로 있던 위치로 다시 복원해서
       // 닫기 버튼(X)을 눌렀을 때와 동일하게 "제자리 유지"가 되도록 함
       if (lightboxLastKnownHref && location.href !== lightboxLastKnownHref) {
-        history.replaceState(null, "", lightboxLastKnownHref);
+        // replaceState를 쓰면 뒤로가기로 이미 도착한 그 자리(예: 전시 미리보기) 자체를
+        // 덮어써버려서, 그 기록이 통째로 사라져버림 - pushState로 그 위에 새 칸을 쌓아야
+        // 지금 도착한 자리가 그대로 보존되고, 나중에 한 번 더 뒤로가기를 눌러도 정상적으로
+        // 그 자리로 돌아갈 수 있음
+        history.pushState(null, "", lightboxLastKnownHref);
         route();
       }
       // 브라우저의 자동 스크롤 복원(scrollRestoration)이 "라이트박스를 처음 열었을 때의
@@ -2177,10 +2397,11 @@
       // 바뀌므로 위 분기를 안 타는 경우가 많음) - href가 같든 다르든 항상 직접 현재 그림
       // 위치로 다시 스크롤함
       requestAnimationFrame(() => {
-        const card = findCurrentLightboxCard();
-        if (card) scrollElementToCenter(card);
+        syncGridScrollToCurrent();
       });
       lightboxLastKnownHref = null;
+      // hashchange는 이 popstate와 같은 틱에서 곧바로 뒤따라오므로, 다음 틱에 가서 해제
+      setTimeout(() => { suppressRouteWithMemory = false; }, 0);
     }
   });
 
@@ -2384,6 +2605,9 @@
   function closeSearchOverlay() {
     searchOverlay.classList.remove("open");
     resetRecentCursor();
+    // 포커스가 검색창에 남아있으면, 나중에 백스페이스를 눌러도 "빈 검색창에서 지우기"로
+    // 처리돼서 뒤로가기가 조용히 씹히는 것처럼 보임 - 닫을 때 확실히 포커스를 풀어줌
+    if (overlaySearchInput && document.activeElement === overlaySearchInput) overlaySearchInput.blur();
   }
 
   function isSearchOverlayOpen() {
@@ -2584,7 +2808,10 @@
 
   document.addEventListener("mouseout", (e) => {
     const el = e.target.closest(NAV_ITEM_SELECTOR);
-    if (el && el === currentJsHoverEl && !el.contains(e.relatedTarget)) clearJsHover();
+    if (el && el === currentJsHoverEl && !el.contains(e.relatedTarget)) {
+      clearJsHover();
+      if (document.activeElement === el) el.blur();
+    }
   });
 
   // 키보드로 이동하는 순간, 마우스가 가리키고 있던 요소의 호버 표시를 확실하게 끔
@@ -2889,12 +3116,23 @@
     return true;
   }
 
+  // 실제 브라우저 포커스(document.activeElement)는 마우스가 벗어나면 풀리지만(시각적으로
+  // "선택 해제"되어 보이게 하려고 일부러 그렇게 함), 방향키를 눌렀을 때 "어디서부터
+  // 이어갈지"는 별도로 기억해둠 - 그래야 마우스를 뗀 다음 방향키를 눌러도 처음(1번)으로
+  // 리셋되지 않고, 마지막으로 가리켰던 위치를 기준으로 자연스럽게 이어감
+  let lastKnownCursorItem = null;
+  document.addEventListener("focusin", (e) => {
+    const el = e.target.closest ? e.target.closest(NAV_ITEM_SELECTOR) : null;
+    if (el) lastKnownCursorItem = el;
+  });
+
   function handleNavArrow(key) {
     document.body.classList.add("keyboard-nav-active");
     clearJsHover();
     const items = collectNavItems();
     if (!items.length) return;
-    const current = items.includes(document.activeElement) ? document.activeElement : null;
+    let current = items.includes(document.activeElement) ? document.activeElement : null;
+    if (!current && items.includes(lastKnownCursorItem)) current = lastKnownCursorItem;
 
     if (!current) {
       items[0].focus();
@@ -2952,13 +3190,22 @@
 
     const typing = isTypingTarget(document.activeElement);
 
+    // 라이트박스가 켜져있을 때는 Tab/Shift+Tab의 원래 동작(다음 포커스 대상으로 이동)을
+    // 막고, 대신 부속 이미지 그룹은 건너뛰고 바로 다음/이전 그리드 작품(대표 이미지)으로
+    // 이동하는 용도로 씀 - 지금 부속 이미지를 보고 있어도 대표 이미지에서 누른 것처럼 동작
+    if (e.key === "Tab" && lightbox.classList.contains("open") && !typing) {
+      e.preventDefault();
+      showLightboxAt(lightboxIndex + (e.shiftKey ? -1 : 1));
+      return;
+    }
+
     // 방향키: 입력 중이면 최근 검색어 훑어보기, 라이트박스 열려있으면 이전/다음 작품,
     // 그 외엔 페이지 전체를 하나로 잇는 커서 이동
     if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
       if (typing) { handleRecentArrow(e); return; }
       if (lightbox.classList.contains("open")) {
-        if (e.key === "ArrowLeft") { e.preventDefault(); showLightboxAt(lightboxIndex - 1); }
-        else if (e.key === "ArrowRight") { e.preventDefault(); showLightboxAt(lightboxIndex + 1); }
+        if (e.key === "ArrowLeft") { e.preventDefault(); stepLightboxHorizontal(-1); }
+        else if (e.key === "ArrowRight") { e.preventDefault(); stepLightboxHorizontal(1); }
         else if (e.key === "ArrowUp") { e.preventDefault(); showLightboxByRow(-1); }
         else if (e.key === "ArrowDown") { e.preventDefault(); showLightboxByRow(1); }
         return;
@@ -2970,6 +3217,7 @@
     }
 
     if (e.key === "Enter" && !typing) {
+      if (lightbox.classList.contains("open")) return; // 라이트박스 안에서는 배경 카드를 다시 클릭하면 안 됨
       const el = document.activeElement;
       if (el && el.classList && el.classList.contains("card")) { e.preventDefault(); el.click(); }
       return;
@@ -2998,9 +3246,69 @@
   // ============================================================
   // 라우터
   // ============================================================
+  // 페이지별로 "마지막으로 있던 스크롤 위치 + 키보드로 선택했던 항목"을 기억해뒀다가,
+  // 같은 페이지로 다시 돌아오면 복원함(라이트박스는 DOM이 안 바뀌어서 이미 자연스럽게
+  // 포커스가 유지되므로 별도 처리 불필요 - 이건 실제 페이지 이동/뒤로가기 케이스용)
+  const pageState = new Map();
+  let currentPageHash = location.hash || "#/";
+
+  function getNavItemIdentifier(el) {
+    if (!el) return null;
+    if (el.tagName === "A" && el.getAttribute("href")) return "href:" + el.getAttribute("href");
+    if (el.dataset && el.dataset.work != null) return "work:" + el.dataset.work + ":" + (el.dataset.workIndex || "");
+    if (el.dataset && el.dataset.install != null) return "install:" + el.dataset.install;
+    return null;
+  }
+
+  function findNavItemByIdentifier(id) {
+    if (!id) return null;
+    const items = collectNavItems();
+    return items.find((el) => getNavItemIdentifier(el) === id) || null;
+  }
+
+  function saveCurrentPageState() {
+    const items = collectNavItems();
+    const focusEl = items.includes(document.activeElement) ? document.activeElement : null;
+    pageState.set(currentPageHash, { scrollY: window.scrollY, focusId: getNavItemIdentifier(focusEl) });
+  }
+
+  function restorePageState() {
+    const saved = pageState.get(currentPageHash);
+    if (!saved) { window.scrollTo(0, 0); return; }
+    requestAnimationFrame(() => {
+      window.scrollTo(0, saved.scrollY);
+      if (saved.focusId) {
+        const el = findNavItemByIdentifier(saved.focusId);
+        if (el) el.focus({ preventScroll: true });
+      }
+    });
+  }
+
   function route() {
+    routeInner();
+  }
+
+  // 실제 사용자가 페이지를 옮겨다닐 때만(해시 변경, 최초 로드) 스크롤/커서를 기억+복원함 -
+  // 라이트박스가 내부적으로 배경 화면만 동기화하려고 route()를 직접 호출하는 경우엔
+  // 이 기억 기능이 끼어들면 라이트박스 자체 스크롤 동기화랑 충돌하므로 거기엔 안 씀
+  // 라이트박스가 자기 popstate 핸들러에서 이미 "정확한 위치로 복원"까지 다 처리 중인
+  // 뒤로가기라면, 그 뒤에 따라오는 hashchange(같은 뒤로가기 때문에 같이 발생함)에서
+  // 이 스크롤 기억 기능이 또 끼어들어 엉뚱한 페이지 상태로 덮어쓰면 안 되므로 억제함
+  let suppressRouteWithMemory = false;
+
+  function routeWithMemory() {
+    if (suppressRouteWithMemory) return;
+    // 검색 결과 클릭 등으로 이미 특정 위치로 스크롤/강조가 예약돼있으면, 그쪽이 우선이므로
+    // 여기서 스크롤을 덮어쓰지 않음(routeInner가 이 예약들을 소비하기 전에 미리 확인해둠)
+    const hasExplicitPending = !!(pendingWorkFocus || pendingPostFocus || pendingBodySearchHighlight || pendingPostTitleHighlight || pendingKeyboardEdgeFocus);
+    saveCurrentPageState();
+    currentPageHash = location.hash || "#/";
+    route();
+    if (!hasExplicitPending) restorePageState();
+  }
+
+  function routeInner() {
     const segments = location.hash.replace(/^#/, "").split("/").filter(Boolean);
-    window.scrollTo(0, 0);
     document.body.classList.remove("gallery-page");
 
     if (segments.length === 0) return renderCV();
@@ -3149,7 +3457,7 @@
   }, true);
 
   applyStaticI18n();
-  window.addEventListener("hashchange", route);
+  window.addEventListener("hashchange", routeWithMemory);
   window.addEventListener("DOMContentLoaded", route);
   route();
 })();

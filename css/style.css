@@ -11,10 +11,10 @@
   --link-orange: #C4732B;
   --lb-text: #FFFFFF;
 
-  --font-display: "Fraunces", Georgia, serif;
-  --font-body: "Inter", -apple-system, sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
-  --font-caption: "Gowun Batang", "Fraunces", Georgia, serif;
+  --font-display: "Fraunces", "Noto Serif KR", Georgia, serif;
+  --font-body: "Inter", "Noto Serif KR", -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", "Noto Serif KR", ui-monospace, monospace;
+  --font-caption: "Gowun Batang", "Noto Serif KR", "Fraunces", Georgia, serif;
 }
 
 * { box-sizing: border-box; }
@@ -296,7 +296,7 @@ img { max-width: 100%; display: block; }
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--sanguine);
-  margin: 40px 0 4px;
+  margin: 40px 0 8px;
 }
 
 .cv-group-label:first-of-type { margin-top: 0; }
@@ -305,18 +305,20 @@ img { max-width: 100%; display: block; }
   list-style: none;
   margin: 0;
   padding: 0;
-  max-width: 640px;
+  max-width: 100%;
 }
 
 .cv-item {
 }
+
+.cv-item.cv-year-break { margin-top: 8px; }
 
 
 .cv-link {
   display: inline-flex;
   flex-direction: column;
   gap: 2px;
-  padding: 9px 8px;
+  padding: 0 8px;
   text-decoration: none;
   color: var(--ink);
   max-width: 100%;
@@ -326,6 +328,20 @@ img { max-width: 100%; display: block; }
   font-family: var(--font-display);
   font-size: 16px;
   transition: color 0.15s ease;
+  display: table;
+  border-collapse: collapse;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.cv-year-col {
+  display: table-cell;
+  white-space: nowrap;
+  padding-right: 0.45em;
+}
+
+.cv-rest-col {
+  display: table-cell;
 }
 
 .cv-link.js-hover .cv-line { color: var(--sanguine); text-decoration: underline; text-underline-offset: 3px; }
@@ -477,6 +493,9 @@ img { max-width: 100%; display: block; }
 }
 
 .statement p { margin: 0 0 16px; color: var(--ink); text-align: justify; text-justify: inter-word; }
+.statement p.align-center { text-align: center; }
+.statement p.align-left { text-align: left; }
+.statement p.align-right { text-align: right; }
 
 .footnote-ref { line-height: 0; }
 .footnote-ref .footnote-jump {
@@ -601,15 +620,28 @@ body.gallery-page { touch-action: pan-y; }
 }
 
 .cap {
-  display: flex;
-  justify-content: space-between;
+  display: table;
+  width: 100%;
   margin: 10px 2px 0;
   font-family: var(--font-mono);
   font-size: 12px;
+  line-height: 1.5;
   color: var(--graphite);
   opacity: 0;
   transform: translateY(-4px);
   transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.cap > span:first-child {
+  display: table-cell;
+  width: 100%;
+}
+
+.cap-year {
+  display: table-cell;
+  white-space: nowrap;
+  padding-left: 8px;
+  vertical-align: top;
 }
 
 .card.js-hover .cap { opacity: 1; transform: translateY(0); }
@@ -626,7 +658,6 @@ body.gallery-page { touch-action: pan-y; }
 .text-item a {
   display: inline-flex;
   flex-direction: column;
-  gap: 4px;
   padding: 20px 8px;
   text-decoration: none;
   color: var(--ink);
@@ -636,6 +667,7 @@ body.gallery-page { touch-action: pan-y; }
 .text-item-title {
   font-family: var(--font-display);
   font-size: 18px;
+  margin-bottom: 0;
 }
 
 .text-item a.js-hover .text-item-title { color: var(--sanguine); text-decoration: underline; text-underline-offset: 3px; }
@@ -649,6 +681,7 @@ body.gallery-page { touch-action: pan-y; }
 .text-item-excerpt {
   font-size: 14px;
   color: var(--graphite);
+  margin-bottom: 4px;
 }
 
 .empty {
@@ -1098,7 +1131,7 @@ body.lightbox-active #app { user-select: none; }
   left: 40px;
   bottom: 10px;
   width: fit-content;
-  max-width: min(420px, calc(100vw - 80px));
+  max-width: calc(100vw - 80px);
   color: var(--lb-text);
   z-index: 10;
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85), 0 1px 12px rgba(0, 0, 0, 0.5);
@@ -1121,25 +1154,32 @@ body.lightbox-active #app { user-select: none; }
 .lb-caption-line {
   font-family: var(--font-caption);
   font-size: 15px;
-  line-height: 1.7;
+  line-height: 1.5;
   margin: 0;
-  padding: 4px 8px;
+  padding: 1px 8px;
   margin-left: -8px;
+  word-break: keep-all;
+  max-width: min(420px, calc(100vw - 80px));
 }
+
+/* 애매한 길이라서 좁은 폭(420px)엔 못 들어가지만 조금만 더 넓히면 한 줄에 들어가는
+   캡션일 때만 JS가 이 클래스를 붙여서 더 넓은 폭을 씀 - 긴 캡션은 원래 폭 그대로 유지 */
+.lb-info-wide .lb-caption-line { max-width: min(700px, calc(100vw - 80px)); }
 
 .lb-caption-line strong {
   font-weight: 700;
   font-size: 16px;
 }
 
-.lb-note { margin-top: 10px; font-size: 14px; font-family: var(--font-caption); color: var(--lb-text); pointer-events: none; }
+.lb-note { margin: 1px 0 0; font-size: 14px; font-family: var(--font-caption); color: var(--lb-text); pointer-events: none; word-break: keep-all; max-width: min(420px, calc(100vw - 80px)); }
 
 .lb-links {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 0;
-  margin-bottom: 14px;
+  margin-bottom: 6px;
+  max-width: min(420px, calc(100vw - 80px));
   pointer-events: none; /* 컨테이너 자체는 터치를 통과시킴(아래 이미지가 반응하도록) */
 }
 
