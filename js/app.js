@@ -292,15 +292,20 @@
     return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 
-  // 검색 매칭/표시용으로 서식 기호(**볼드**, *이탤릭*, _밑줄_, [링크](주소))를 제거한
-  // 순수 텍스트를 만듦 - 이걸 안 하면 "*중요한* 그림이다"에서 별표가 "중요한 그림이다"라는
-  // 연속된 검색어 매칭을 깨뜨리고, 결과 화면에도 별표가 그대로 노출돼버림
+  // 검색 매칭/표시용으로 서식 기호(**볼드**, -*이탤릭*-, __밑줄__, [링크](주소))를 제거한
+  // 순수 텍스트를 만듦 - 이걸 안 하면 별표가 연속된 검색어 매칭을 깨뜨리고,
+  // 결과 화면에도 기호가 그대로 노출돼버림
   function stripFormatting(text) {
     return (text || "")
       .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, "$1")
-      .replace(/\*\*([^*\n]+)\*\*/g, "$1")
-      .replace(/\*([^*\n]+)\*/g, "$1")
-      .replace(/_([^_\n]+)_/g, "$1");
+      .replace(/\*\*([\s\S]*?)\*\*/g, "$1")
+      .replace(/-\*([\s\S]*?)\*-/g, "$1")
+      .replace(/__([\s\S]*?)__/g, "$1");
+  }
+
+  // \n을 <br>로 바꿈 (뒤따르던 공백은 renderBodyWithFootnotes 시작부에서 이미 보존 처리됨)
+  function nlToBr(html) {
+    return html.replace(/\n/g, "<br>");
   }
 
   function renderInline(text) {
@@ -309,12 +314,12 @@
       /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
       '<a href="$2" target="_blank" rel="noopener" class="inline-link">$1</a>'
     );
-    // 볼드체: **글자** -> 굵게. 이탤릭(별표 1개)보다 먼저 처리해야 겹치지 않음
-    html = html.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
-    // 이탤릭: *글자* -> 기울임체. 줄바꿈을 사이에 두고 걸치진 않게 함
-    html = html.replace(/\*([^*\n]+)\*/g, "<em>$1</em>");
-    // 밑줄: _글자_ -> 밑줄
-    html = html.replace(/_([^_\n]+)_/g, "<u>$1</u>");
+    // 볼드체: **글자** -> 굵게. 이탤릭보다 먼저 처리해야 겹치지 않음
+    html = html.replace(/\*\*([\s\S]*?)\*\*/g, "<strong>$1</strong>");
+    // 이탤릭: -*글자*- -> 기울임체 (기사 등에서 흔한 단순 *강조*와 안 헷갈리게 앞뒤 하이픈 필요)
+    html = html.replace(/-\*([\s\S]*?)\*-/g, "<em>$1</em>");
+    // 밑줄: __글자__ -> 밑줄 (밑줄 두 개, 흔한 단순 _글자_ 표기와 안 헷갈리게)
+    html = html.replace(/__([\s\S]*?)__/g, "<u>$1</u>");
     return html;
   }
 
@@ -332,23 +337,31 @@
     const parts = (text || "").split(/(\n{2,})/);
     const paragraphs = [];
     let pendingBreaks = 0;
+    let trailingBreaks = 0; // 맨 끝에 문단 없이 줄바꿈만 남는 경우를 위해 기록해둠
     parts.forEach((part, i) => {
       if (i % 2 === 1) { pendingBreaks = Math.max(0, part.length - 2); return; } // 기본 2개는 문단 구분용, 그 이상만 추가 줄바꿈으로 남김
-      if (!part.trim()) return;
+      if (!part.trim()) { trailingBreaks = pendingBreaks; return; }
       paragraphs.push({ text: part, leadingBreaks: pendingBreaks });
       pendingBreaks = 0;
+      trailingBreaks = 0;
     });
+    // 글이 줄바꿈들로 끝나서 그 뒤에 붙을 문단이 없는 경우, 버리지 않고 마지막 문단
+    // 뒤쪽에 그만큼 줄바꿈을 붙여줌
+    if (trailingBreaks > 0 && paragraphs.length) {
+      paragraphs[paragraphs.length - 1].trailingBreaks = trailingBreaks;
+    }
     return paragraphs;
   }
 
   function renderParagraphsHtml(text) {
-    return splitParagraphsWithFormatting(text).map(({ text: p, leadingBreaks }) => {
+    return splitParagraphsWithFormatting(text).map(({ text: p, leadingBreaks, trailingBreaks }) => {
       const { text: content, align } = extractAlignment(p);
       const alignClass = align ? ` class="align-${align}"` : "";
-      // 문단 안에서 쓴 단순 줄바꿈(\n 하나)도 그대로 <br>로 보이게 함
-      const withBreaks = renderInline(content).replace(/\n/g, "<br>");
-      const extraBr = leadingBreaks ? "<br>".repeat(leadingBreaks) : "";
-      return `<p${alignClass}>${extraBr}${withBreaks}</p>`;
+      // 문단 안에서 쓴 단순 줄바꿈(\n 하나)도 그대로 <br>로 보이게 함 (뒤따르는 공백도 보존)
+      const withBreaks = nlToBr(renderInline(content));
+      const leadingBr = leadingBreaks ? "<br>".repeat(leadingBreaks) : "";
+      const trailingBr = trailingBreaks ? "<br>&nbsp;".repeat(trailingBreaks) : "";
+      return `<p${alignClass}>${leadingBr}${withBreaks}${trailingBr}</p>`;
     }).join("");
   }
 
@@ -356,7 +369,7 @@
     return renderParagraphsHtml(text);
   }
 
-  // 각주 시스템 - 본문에 [^각주 내용] 이렇게 쓰면 그 자리에 작은 위첨자 번호가 자동으로 붙고,
+  // 각주 시스템 - 본문에 -[^각주 내용]- 이렇게 쓰면 그 자리에 작은 위첨자 번호가 자동으로 붙고,
   // 등장 순서대로 번호가 매겨지면서 글 맨 끝에 각주 목록이 자동으로 생성됨
   // (아래아한글의 "각주" 기능과 같은 개념 - 번호를 직접 안 세도 됨)
   // 사이트 전체에서 유일한(중복 없는) 작품 제목만 자동 링크 대상으로 삼음
@@ -411,7 +424,14 @@
   function renderBodyWithFootnotes(text, highlightQuery) {
     const footnotes = [];
     const mentions = [];
-    let workingText = text || "";
+    // 두 가지를 미리 처리해둠(가장 앞단에서 한 번에):
+    // 1) \n 뒤에 오는 공백 - 브라우저가 "줄 시작 공백"으로 보고 없애버림
+    // 2) 스페이스바를 연달아 여러 번 누른 경우 - 브라우저가 몇 칸이든 화면엔 1칸으로 뭉개버림
+    // 둘 다 안 없어지는 공백(\u00A0)으로 바꿔서 실제 입력한 그대로 보존되게 함
+    // (마지막 한 칸은 일반 스페이스로 남겨둬서 그 자리에서 자연스럽게 줄바꿈도 가능하게 함)
+    let workingText = (text || "")
+      .replace(/ {2,}/g, (m) => "\u00A0".repeat(m.length - 1) + " ")
+      .replace(/\n /g, "\n\u00A0");
 
     // 검색 강조: 각주/링크 처리 전에 원본 텍스트에서 매치 위치를 찾아 특수 토큰으로 감싸둠
     // (각주 안의 매치는 여기서 다루지 않음 - findSearchMatchLocation으로 미리 구분해서
@@ -425,9 +445,9 @@
       }
     }
 
-    // 1단계: [^내용]을 실제 각주 내용은 따로 빼두고, 자리엔 임시 표시(플레이스홀더)만 남김
+    // 1단계: -[^내용]-을 실제 각주 내용은 따로 빼두고, 자리엔 임시 표시(플레이스홀더)만 남김
     // (플레이스홀더 상태로 escapeHtml/링크 처리를 통과시켜야 태그가 이스케이프되지 않음)
-    let withPlaceholders = workingText.replace(/\[\^([^\]]+)\]/g, (match, content) => {
+    let withPlaceholders = workingText.replace(/-\[\^([\s\S]*?)\]-/g, (match, content) => {
       footnotes.push(content.trim());
       return `@@FN${footnotes.length}@@`;
     });
@@ -462,7 +482,7 @@
         return `
           <li id="fn-${num}">
             <span class="footnote-num footnote-jump" data-jump-to="fnref-${num}" role="link" tabindex="0" aria-label="본문으로">${num})</span>
-            <span class="footnote-text"><span class="footnote-text-mark">${renderInline(content)}</span></span>
+            <span class="footnote-text"><span class="footnote-text-mark">${nlToBr(renderInline(content))}</span></span>
           </li>`;
       }).join("");
       bodyHtml += `<ol class="footnote-list">${items}</ol>`;
@@ -475,11 +495,11 @@
   // 바로 스크롤하면 되고, 일반 본문이면 renderBodyWithFootnotes에 강조를 맡김
   function findFootnoteSpans(text) {
     const spans = [];
-    const re = /\[\^([^\]]+)\]/g;
+    const re = /-\[\^([\s\S]*?)\]-/g;
     let m, order = 0;
     while ((m = re.exec(text))) {
       order++;
-      spans.push({ order, contentStart: m.index + 2, contentEnd: m.index + m[0].length - 1 });
+      spans.push({ order, contentStart: m.index + 3, contentEnd: m.index + m[0].length - 2 });
     }
     return spans;
   }
@@ -797,7 +817,7 @@
     app.innerHTML = `
       <section class="list-page">
         <div class="wrap">
-          ${breadcrumbHtml(trail, "works", ui("worksLabel"))}
+          ${breadcrumbHtml(trail.slice(0, -1), "works", ui("worksLabel"))}
           <h1 class="detail-title">${t(node.title)}</h1>
           ${innerBody}
         </div>
@@ -862,7 +882,7 @@
     app.innerHTML = `
       <section class="list-page">
         <div class="wrap">
-          ${breadcrumbHtml(trail, "text", ui("textLabel"))}
+          ${breadcrumbHtml(trail.slice(0, -1), "text", ui("textLabel"))}
           <h1 class="detail-title">${t(node.title)}</h1>
           ${body}
         </div>
@@ -2015,7 +2035,7 @@
     lbCaptionLine.innerHTML = parts.join(", ");
     adjustCaptionWidthMode();
 
-    lbNote.textContent = note || "";
+    lbNote.innerHTML = note ? nlToBr(renderInline(note)) : "";
     lbNote.style.display = note ? "" : "none";
 
     lbLinks.innerHTML = (links || [])
