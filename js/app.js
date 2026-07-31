@@ -1515,9 +1515,15 @@
     if (lightbox.classList.contains("open")) initImageBox();
   });
 
-  // 창 크기가 바뀌면(리사이즈, 최소화 복귀 등) 확대 상태를 초기화하고 가운데로 재배치
-  // - 화면 밖으로 이미지가 나가버리는 것 방지
+  // 창 크기가 바뀌면(회전, 실제 창 크기 변경 등) 확대 상태를 초기화하고 가운데로 재배치
+  // - 화면 밖으로 이미지가 나가버리는 것 방지.
+  // 단, 모바일에서 스크롤/드래그할 때 주소창이 접혔다 펴지면서 세로 높이만 살짝 바뀌는
+  // 것도 resize 이벤트로 잡히는데, 그때마다 초기화되면 확대한 채로 손가락으로 이동하다가
+  // 갑자기 줌이 풀려버림 - 그래서 "폭"이 실제로 바뀐 경우에만(회전/진짜 리사이즈) 초기화함
+  let lastKnownInnerWidth = window.innerWidth;
   window.addEventListener("resize", () => {
+    if (window.innerWidth === lastKnownInnerWidth) return; // 세로 높이만 바뀐 경우(주소창 등) 무시
+    lastKnownInnerWidth = window.innerWidth;
     if (lightbox.classList.contains("open")) initImageBox();
   });
 
