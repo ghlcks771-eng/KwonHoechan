@@ -1818,6 +1818,12 @@
     }
     if (e.touches.length !== 1) return;
     pinchStartDist = null;
+    if (pendingSwipeCommit) {
+      // 스와이프 도중 잡는 경우는 확대 상태가 아니어야 정상인데, scale이 어떤 이유로든
+      // 정확히 1이 아니게 되면(부동소수점 오차 등) "확대된 상태"로 잘못 인식돼서
+      // 세로 이동(팬)까지 반영해버리는 문제가 생길 수 있음 - 여기서 명시적으로 확정해둠
+      scale = 1;
+    }
     if (pendingSwipeCommit && pendingSwipeCommit.winner) {
       // 넘어가던 전환을 취소만 하면 화면이 잠깐 비어버림 - 대신 바로 완료시켜서
       // "잡아서 이어가는" 느낌으로, 다음 제스처는 항상 완성된 이미지에서 시작함.
