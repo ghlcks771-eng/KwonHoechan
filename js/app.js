@@ -3482,8 +3482,41 @@
     el.style.display = "none";
   }, true);
 
+  // 모바일(햄버거 메뉴로 바뀌는 650px 이하)에서, 짧은 라벨형 링크들(CV 줄, 카테고리 항목,
+  // 참고문헌 항목)의 터치 가능 범위를 오른쪽으로만 정확히 2배(추가로 원래 너비의 절반)
+  // 넓힘. 이미 왼쪽에 붙어있는 메뉴들이라 왼쪽은 안 건드림. 글자/줄바꿈은 전혀 안 건드리고
+  // 순수하게 클릭 가능한 여백(padding-right)만 늘어남
+  const TAP_WIDEN_SELECTOR = ".cv-link, .cat-item a, .ref-item a";
+
+  function applyMobileTapWidening() {
+    const isMobile = window.innerWidth <= 650;
+    document.querySelectorAll(TAP_WIDEN_SELECTOR).forEach((el) => {
+      const existing = el.querySelector(":scope > .tap-extend");
+      if (!isMobile) {
+        if (existing) existing.remove();
+        return;
+      }
+      if (existing) return; // 이미 처리됨 - 다시 재는 걸 방지(계속 커지는 것 방지)
+      const rect = el.getBoundingClientRect();
+      if (!rect.width) return;
+      // 절대 위치라 일반적인 레이아웃 흐름에서 완전히 빠져있음 - 그래서 링크 자신이나
+      // 글자의 폭 계산에 전혀 영향을 안 주고(줄바꿈 걱정 없음), 순수하게 오른쪽에
+      // "보이진 않지만 눌리는 영역"만 하나 더 붙는 것
+      if (getComputedStyle(el).position === "static") el.style.position = "relative";
+      const extend = document.createElement("span");
+      extend.className = "tap-extend";
+      extend.style.cssText = `position:absolute; top:0; left:100%; height:100%; width:${rect.width / 2}px;`;
+      extend.setAttribute("aria-hidden", "true");
+      el.appendChild(extend);
+    });
+  }
+
+  new MutationObserver(() => applyMobileTapWidening()).observe(app, { childList: true, subtree: true });
+  window.addEventListener("resize", applyMobileTapWidening);
+
   applyStaticI18n();
   window.addEventListener("hashchange", routeWithMemory);
   window.addEventListener("DOMContentLoaded", route);
   route();
+  applyMobileTapWidening();
 })();
