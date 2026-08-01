@@ -1801,13 +1801,10 @@
     if (pendingSwipeCommit) {
       // 넘어가던 전환을 취소만 하면 화면이 잠깐 비어버림 - 대신 바로 완료시켜서
       // "잡아서 이어가는" 느낌으로, 다음 제스처는 항상 완성된 이미지에서 시작함.
-      // 단, 뚝 끊고 정중앙에서 시작하면 부자연스러우므로, 그 순간 실제로 보이던 위치
-      // (진행 중이던 애니메이션 값)를 먼저 읽어둠 - 확정 커밋(winner가 있음)이든
-      // 스냅백(제자리로 돌아가는 중, winner 없음)이든 둘 다 동일하게 처리함
+      // 단, 뚝 끊고 정중앙에서 시작하면 부자연스러우므로, winner가 있으면(확정 커밋인
+      // 경우) 그 순간 실제로 보이던 위치(진행 중이던 애니메이션 값)를 먼저 읽어둠
       let capturedOffset = 0;
-      const isCommitGrab = !!pendingSwipeCommit.winner;
-      if (isCommitGrab) {
-        // 확정 커밋 도중 - 넘어오고 있던 winner(peek)의 현재 위치를 읽음
+      if (pendingSwipeCommit.winner) {
         const computedTransform = getComputedStyle(pendingSwipeCommit.winner).transform;
         let capturedX = 0;
         if (computedTransform && computedTransform !== "none") {
@@ -1825,37 +1822,23 @@
             h: pendingSwipeCommit.winner.naturalHeight
           });
         }
-        // 지금 사라지는 쪽(지금까지 보고 있던 그림)도 같은 이유로 캐시에 심어둠 - 이건 이미
-        // 화면에 다 로드되어 보이고 있던 그림이라 실제 치수를 바로 알 수 있음. 이렇게 하면
-        // 반대 방향으로 이어서 드래그해도(그 그림이 새 "이전/다음" 자리로 다시 나타나도)
-        // 캐시가 이미 있어서 바로 보여지고, "숨겼다 늦게 보여주는" 경로 자체를 안 타게 됨
-        if (lbImage.naturalWidth) {
-          const currentEntry = getItemImageEntry(lightboxItems[lightboxIndex], lightboxSubIndex);
-          if (currentEntry.src) {
-            imageDimsCache.set(currentEntry.src, { w: lbImage.naturalWidth, h: lbImage.naturalHeight });
-          }
-        }
-      } else {
-        // 스냅백 도중(덜 밀어서 제자리로 돌아가는 중) - lbImage 자신이 지금 어디 있는지 읽음
-        const computedTransform = getComputedStyle(lbImage).transform;
-        if (computedTransform && computedTransform !== "none") {
-          const match = computedTransform.match(/matrix\(([^)]+)\)/);
-          if (match) capturedOffset = parseFloat(match[1].split(",")[4]) || 0;
-        }
       }
       clearTimeout(pendingSwipeCommit.timer);
-      if (isCommitGrab) pendingGrabOffset = capturedOffset; // openLightboxRaw가 실제로 보여주는 순간에 이 값을 소비함
+      const wasCommittedGrab = !!pendingSwipeCommit.winner;
+      pendingGrabOffset = capturedOffset; // openLightboxRaw가 실제로 보여주는 순간에 이 값을 소비함
       pendingSwipeCommit.run();
       pendingSwipeCommit = null;
       touchStartX = e.touches[0].clientX - capturedOffset;
-      // 새로 자리잡은(또는 그대로인) 이미지를 기준으로 스와이프 준비(다음/이전 미리 대기)를
-      // 다시 해둠 - 이러면 이어서 드래그하거나, 이대로 손을 떼도 일반적인 스와이프처럼
-      // 커밋/스냅백 판정이 자연스럽게 이뤄짐(안 그러면 손을 떼도 그 자리에 계속 멈춰있게 됨)
-      touchSwiping = true;
-      setupSwipePeeks();
-      lbImage.style.transform = `translateX(${capturedOffset}px)`;
-      if (lbImagePeekNext.style.display !== "none") lbImagePeekNext.style.transform = `translateX(${capturedOffset}px)`;
-      if (lbImagePeekPrev.style.display !== "none") lbImagePeekPrev.style.transform = `translateX(${capturedOffset}px)`;
+      if (wasCommittedGrab) {
+        // 새로 자리잡은 이미지를 기준으로 스와이프 준비(다음/이전 미리 대기)를 다시 해둠 -
+        // 이러면 이어서 드래그하거나, 이대로 손을 떼도 일반적인 스와이프처럼 커밋/스냅백
+        // 판정이 자연스럽게 이뤄짐(안 그러면 손을 떼도 그 자리에 계속 멈춰있게 됨)
+        touchSwiping = true;
+        setupSwipePeeks();
+        lbImage.style.transform = `translateX(${capturedOffset}px)`;
+        if (lbImagePeekNext.style.display !== "none") lbImagePeekNext.style.transform = `translateX(${capturedOffset}px)`;
+        if (lbImagePeekPrev.style.display !== "none") lbImagePeekPrev.style.transform = `translateX(${capturedOffset}px)`;
+      }
     } else {
       touchStartX = e.touches[0].clientX;
     }
