@@ -1789,7 +1789,9 @@
       return;
     }
 
-    if (Math.abs(dx) <= Math.abs(dy)) return;
+    // 대각선으로 애매하게 스와이프해도 옆으로 안 넘어가도록, 가로가 세로보다 확실히
+    // 더 커야만(대략 수평 기준 30도 이내) 좌우 스와이프로 인정함 (기존 45도보다 까다로움)
+    if (Math.abs(dx) <= Math.abs(dy) * 1.73) return;
 
     if (!touchSwiping) {
       // 스와이프 시작 - 다음/이전 그림을 양쪽에 모두 미리 대기시켜둠 (방향을 바꿔도 항상 그림이 있게)
@@ -3026,7 +3028,9 @@
       if (!active || e.touches.length !== 1 || !unit) return;
       const dx = e.touches[0].clientX - startX;
       const dy = e.touches[0].clientY - startY;
-      if (Math.abs(dx) <= Math.abs(dy)) return;
+      // 대각선으로 애매하게 스와이프해도 옆으로 안 넘어가도록, 가로가 세로보다 확실히
+      // 더 커야만(대략 수평 기준 30도 이내) 좌우 스와이프로 인정함 (기존 45도보다 까다로움)
+      if (Math.abs(dx) <= Math.abs(dy) * 1.73) return;
       swiping = true;
       unit.style.transition = "none";
       unit.style.transform = `translateX(${dx}px)`;
