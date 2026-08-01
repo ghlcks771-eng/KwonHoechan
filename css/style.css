@@ -395,7 +395,7 @@ img { max-width: 100%; display: block; }
 .cat-item { }
 
 .cat-item a {
-  display: flex;
+  display: inline-flex;
   padding: 18px 8px;
   text-decoration: none;
   font-family: var(--font-display);
@@ -731,17 +731,18 @@ body.gallery-page { touch-action: pan-y; }
 .contact-list li { }
 
 .contact-list a {
-  display: block;
+  display: inline-block;
   padding: 16px 4px;
   text-decoration: none;
+  max-width: 100%;
 }
 
 .contact-list a:hover { color: var(--sanguine); text-decoration: underline; text-underline-offset: 3px; }
 .contact-list a:focus-visible { outline: none; color: var(--sanguine); text-decoration: underline; text-underline-offset: 3px; }
 
 .contact-copy {
-  display: block;
-  width: 100%;
+  display: inline-block;
+  max-width: 100%;
   padding: 16px 4px;
   text-align: left;
   background: none;
@@ -888,12 +889,13 @@ body.keyboard-nav-active .search-item a {
 .ref-item { }
 
 .ref-item a {
-  display: flex;
+  display: inline-flex;
   flex-direction: column;
   gap: 4px;
   padding: 14px 2px;
   text-decoration: none;
   color: var(--ink);
+  max-width: 100%;
 }
 
 /* 소제목(서문/글) 바로 다음 첫 항목은 위쪽 패딩을 줄여서, 그리드(작업/전시전경)와
