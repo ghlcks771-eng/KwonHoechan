@@ -1511,8 +1511,11 @@
     // 아직 로딩 전이면 onload 핸들러가 initImageBox()를 호출함
   }
 
+  let suppressBoxResetOnLoad = false; // thumb->원본 교체 시, 사용자가 확대/이동해둔 상태를 유지하기 위한 표시
+
   lbImage.addEventListener("load", () => {
     if (!lightbox.classList.contains("open")) return;
+    if (suppressBoxResetOnLoad) { suppressBoxResetOnLoad = false; return; }
     // load는 "다운로드 끝남"만 보장하고 "실제로 화면에 그릴 준비(디코딩) 끝남"까지는
     // 보장 안 함 - decode()로 한 번 더 확인한 다음에야 자리를 잡고 보여줌
     if (lbImage.decode) {
@@ -1888,7 +1891,8 @@
           // 진짜로 갈 곳이 없는 경우(전시 경계 등)만 숨김 - 그 항목에 이미지가 없을 뿐인
           // 경우는 자리표시자로 계속 보이게 해서 그 방향 스와이프가 막히지 않도록 함
           if (!hasIndex) { el.style.display = "none"; return; }
-          setPeekImageSrc(el, key, src, thumb);
+          // 크기를 먼저 확정한 다음에 src를 넣어야 함 - 순서가 반대면(src 먼저) 크기가
+          // 정해지기 전 잠깐 원본 픽셀 크기 그대로 작게 그려졌다가 커지는 것처럼 보일 수 있음
           const dims = src ? imageDimsCache.get(src) : null;
           const fit = dims ? computeFitSize(dims.w, dims.h) : { w: imgWidth, h: imgHeight };
           el.style.width = `${fit.w}px`;
@@ -1897,6 +1901,7 @@
           el.style.left = `${imgLeft + offset}px`;
           el.style.transition = "none";
           el.style.transform = "translateX(0px)";
+          setPeekImageSrc(el, key, src, thumb);
           el.style.display = "";
         });
       }
@@ -2088,6 +2093,9 @@
           // 로딩되는 사이에 닫기/스와이프/키보드/뒤로가기 등으로 다른 이미지로 넘어갔으면
           // (번호가 달라졌으면) 조용히 무시 - 엉뚱한 화면에 잘못 덮어씌우는 것 방지
           if (lightboxImageLoadToken !== myLoadToken) return;
+          // thumb를 보는 동안 사용자가 확대/이동해뒀을 수 있으므로, 원본으로 바뀔 때
+          // 그 상태를 그대로 유지함(자리/배율을 리셋하지 않음) - 내용만 조용히 바뀜
+          suppressBoxResetOnLoad = true;
           lbImage.src = image;
         };
         fullRes.src = image;
