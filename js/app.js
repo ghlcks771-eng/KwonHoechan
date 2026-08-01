@@ -1784,7 +1784,6 @@
     lbInfo.classList.toggle("lb-info-hidden", captionHidden);
   }
   let nextGap = 0, prevGap = 0;
-  let swipePeekGeneration = 0; // setupSwipePeeks가 실행될 때마다 올라감 - 늦게 도착하는 비동기 정리가 최신 peek을 잘못 지우지 않도록 구분하는 용도
   let nextFullSrc = "", prevFullSrc = ""; // 커밋 시점에 캐시를 미리 채우기 위해 원본(고화질) 주소를 기억해둠
 
   lbImageWrap.addEventListener("touchstart", (e) => {
@@ -1823,6 +1822,16 @@
             h: pendingSwipeCommit.winner.naturalHeight
           });
         }
+        // 지금 사라지는 쪽(지금까지 보고 있던 그림)도 같은 이유로 캐시에 심어둠 - 이건 이미
+        // 화면에 다 로드되어 보이고 있던 그림이라 실제 치수를 바로 알 수 있음. 이렇게 하면
+        // 반대 방향으로 이어서 드래그해도(그 그림이 새 "이전/다음" 자리로 다시 나타나도)
+        // 캐시가 이미 있어서 바로 보여지고, "숨겼다 늦게 보여주는" 경로 자체를 안 타게 됨
+        if (lbImage.naturalWidth) {
+          const currentEntry = getItemImageEntry(lightboxItems[lightboxIndex], lightboxSubIndex);
+          if (currentEntry.src) {
+            imageDimsCache.set(currentEntry.src, { w: lbImage.naturalWidth, h: lbImage.naturalHeight });
+          }
+        }
       }
       clearTimeout(pendingSwipeCommit.timer);
       const wasCommittedGrab = !!pendingSwipeCommit.winner;
@@ -1856,7 +1865,6 @@
   // 스와이프가 처음 시작될 때뿐 아니라, 애니메이션 도중에 다시 잡아서 그 자리에서
   // 이어서 드래그하게 될 때도 새 "현재 그림" 기준으로 다시 준비해야 하므로 함수로 뺌
   function setupSwipePeeks() {
-    swipePeekGeneration++;
     nextGap = imgWidth + 24;
     prevGap = imgWidth + 24;
 
@@ -2164,10 +2172,6 @@
 
     resetZoom();
     const myLoadToken = ++lightboxImageLoadToken;
-    // 이 시점(이 함수가 시작되는 순간) 기준의 peek 세대 번호를 기억해둠 - revealWithDims가
-    // 나중에(캐시 미스로 비동기로) 실행될 때, 그 사이 더 새로운 peek 세팅이 있었다면
-    // (세대 번호가 바뀌었다면) 그 새 peek을 잘못 지우지 않도록 하기 위함
-    const myPeekGeneration = swipePeekGeneration;
 
     // 이 호출(myLoadToken) 전용 "배치하고 보여주기" - 그 사이 다른 이미지로 넘어갔으면
     // (번호표가 안 맞으면) 무조건 무시함. load 이벤트나 별도 억제 플래그에 기대지 않고
@@ -2186,12 +2190,8 @@
       lbImage.style.transform = pendingGrabOffset ? `translateX(${pendingGrabOffset}px)` : "";
       pendingGrabOffset = 0;
       lbImage.style.opacity = "1";
-      // 그 사이(이 함수가 시작된 뒤 지금 실행되기까지) 더 새로운 peek 세팅이 없었을 때만
-      // 정리함 - 있었다면(세대 번호가 바뀌었다면) 그 새 peek을 잘못 지우지 않도록 건드리지 않음
-      if (swipePeekGeneration === myPeekGeneration) {
-        lbImagePeekNext.style.display = "none";
-        lbImagePeekPrev.style.display = "none";
-      }
+      lbImagePeekNext.style.display = "none";
+      lbImagePeekPrev.style.display = "none";
       applyImageBox();
       updateZoomState();
     };
