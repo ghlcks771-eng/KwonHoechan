@@ -1666,7 +1666,7 @@
   // 빠르게 여러 번 스와이프해도 오래된 배경 로딩이 나중에 엉뚱하게 덮어쓰지 않도록 함
   const peekLoadTokens = { next: 0, prev: 0 };
 
-  function setPeekImageSrc(el, key, src, thumb) {
+  function setPeekImageSrc(el, key, src, thumb, dimsKnown, offset) {
     const myToken = ++peekLoadTokens[key];
     if (!src) {
       el.removeAttribute("src");
@@ -1675,12 +1675,37 @@
       return;
     }
     const initialSrc = (thumb && thumb !== src) ? thumb : src;
-    // 크기는 호출하는 쪽에서 이미 확정해뒀으므로, 여기서는 decode() 대기 없이 바로 보여줌.
-    // (급한 드래그/빠른 스와이프에서는 decode()가 끝나기 전에 커밋 애니메이션이 먼저
-    // 시작될 수 있어서, "숨겼다 보여주기"를 여기 걸면 오히려 늦게 팝업되는 것처럼 보일 수 있음)
-    el.style.opacity = "1";
-    el.src = initialSrc;
     el.classList.remove("lb-image-placeholder");
+
+    if (dimsKnown) {
+      // 캐시로 이미 정확한 크기를 알고 있음(대부분의 경우) - 크기는 호출하는 쪽에서
+      // 이미 확정해뒀으므로 decode() 대기 없이 바로 보여줌. (급한 드래그/빠른 스와이프에서는
+      // decode()가 끝나기 전에 커밋 애니메이션이 먼저 시작될 수 있어서, 매번 "숨겼다
+      // 보여주기"를 걸면 오히려 늦게 팝업되는 것처럼 보일 수 있음)
+      el.style.opacity = "1";
+      el.src = initialSrc;
+    } else {
+      // 처음 보는 이미지라 크기를 몰라서 임시로 현재 이미지 크기를 빌려쓴 상태 - 진짜
+      // 크기가 아닐 수 있으므로, 실제로 로드/디코딩된 뒤 진짜 치수로 다시 맞추고 나서 보여줌
+      el.style.opacity = "0";
+      el.src = initialSrc;
+      const waitReady = el.decode
+        ? el.decode()
+        : new Promise((resolve) => { el.addEventListener("load", resolve, { once: true }); });
+      waitReady.then(() => {
+        if (peekLoadTokens[key] !== myToken) return; // 그 사이 새로 스와이프 시작됨 - 무시
+        const fit = computeFitSize(el.naturalWidth, el.naturalHeight);
+        el.style.width = `${fit.w}px`;
+        el.style.height = `${fit.h}px`;
+        el.style.top = `${(window.innerHeight - fit.h) / 2}px`;
+        el.style.left = `${imgLeft + offset}px`;
+        el.style.opacity = "1";
+      }).catch(() => {
+        if (peekLoadTokens[key] !== myToken) return;
+        el.style.opacity = "1"; // 실패해도 최소한 안 보이는 채로 남지는 않게
+      });
+    }
+
     if (thumb && thumb !== src) {
       const fullRes = new Image();
       const swapPeekToFullRes = () => {
@@ -1775,12 +1800,28 @@
     pinchStartDist = null;
     if (pendingSwipeCommit) {
       // 넘어가던 전환을 취소만 하면 화면이 잠깐 비어버림 - 대신 바로 완료시켜서
-      // "잡아서 이어가는" 느낌으로, 다음 제스처는 항상 완성된 이미지에서 시작함
+      // "잡아서 이어가는" 느낌으로, 다음 제스처는 항상 완성된 이미지에서 시작함.
+      // 단, 뚝 끊고 정중앙에서 시작하면 부자연스러우므로, winner가 있으면(확정 커밋인
+      // 경우) 그 순간 실제로 보이던 위치(진행 중이던 애니메이션 값)를 먼저 읽어둠
+      let capturedOffset = 0;
+      if (pendingSwipeCommit.winner) {
+        const computedTransform = getComputedStyle(pendingSwipeCommit.winner).transform;
+        let capturedX = 0;
+        if (computedTransform && computedTransform !== "none") {
+          // matrix(a, b, c, d, tx, ty) 형태에서 tx(가로 이동값)만 뽑아냄
+          const match = computedTransform.match(/matrix\(([^)]+)\)/);
+          if (match) capturedX = parseFloat(match[1].split(",")[4]) || 0;
+        }
+        capturedOffset = pendingSwipeCommit.offset + capturedX;
+      }
       clearTimeout(pendingSwipeCommit.timer);
+      pendingGrabOffset = capturedOffset; // openLightboxRaw가 실제로 보여주는 순간에 이 값을 소비함
       pendingSwipeCommit.run();
       pendingSwipeCommit = null;
+      touchStartX = e.touches[0].clientX - capturedOffset;
+    } else {
+      touchStartX = e.touches[0].clientX;
     }
-    touchStartX = e.touches[0].clientX;
     touchStartY = e.touches[0].clientY;
     touchStartTime = Date.now();
     touchPanStartLeft = imgLeft;
@@ -1900,8 +1941,10 @@
           el.style.transition = "none";
           el.style.transform = "translateX(0px)";
           el.style.display = "";
-          // 내용 지정 - 크기는 이미 확정됐으므로 바로 보여줘도 안전함
-          setPeekImageSrc(el, key, src, thumb);
+          // 내용 지정 - 캐시로 이미 정확한 크기를 알고 있으면(대부분의 경우, 한 번이라도
+          // 봤던 이미지) 바로 보여주고, 처음 보는 이미지라 크기를 모르는 채로 임시값을
+          // 썼다면 실제로 로드된 뒤 진짜 치수로 다시 맞추고 보여줌
+          setPeekImageSrc(el, key, src, thumb, !!dims, offset);
         });
       }
     }
@@ -2030,6 +2073,8 @@
         };
         pendingSwipeCommit = {
           run: finishCommit,
+          winner,
+          offset: dir > 0 ? nextGap : -prevGap,
           timer: setTimeout(() => {
             pendingSwipeCommit = null;
             finishCommit();
@@ -2078,6 +2123,7 @@
   }
 
   let lightboxImageLoadToken = 0; // 이 번호가 바뀌면(다른 이미지로 넘어가면) 이전 백그라운드 로딩은 무시됨
+  let pendingGrabOffset = 0; // 스와이프 애니메이션 도중 다시 손을 댔을 때, 그 순간 위치에서 이어받기 위한 값
 
   function openLightboxRaw({ image, thumb, title, artist, meta, note, links }) {
     // 이미지 로딩(특히 캐시된 thumb는 거의 순식간에 load 이벤트가 발생함)이 시작되기 전에
@@ -2101,7 +2147,11 @@
       imgLeft = (window.innerWidth - fit.w) / 2;
       imgTop = (window.innerHeight - fit.h) / 2;
       lbImage.style.transition = "none";
-      lbImage.style.transform = "";
+      // 스와이프 애니메이션 도중 다시 손을 대서 그 위치를 이어받기로 했다면(pendingGrabOffset),
+      // 정중앙(빈 문자열) 대신 그 위치로 대신 배치함 - 동기/비동기 경로 둘 다 여기서 처리되므로
+      // 캐시 미스로 늦게 보여지는 경우에도 항상 정확히 반영됨
+      lbImage.style.transform = pendingGrabOffset ? `translateX(${pendingGrabOffset}px)` : "";
+      pendingGrabOffset = 0;
       lbImage.style.opacity = "1";
       lbImagePeekNext.style.display = "none";
       lbImagePeekPrev.style.display = "none";
@@ -2165,6 +2215,7 @@
       lbImage.style.display = "";
       lbImage.style.opacity = "1"; // 혹시 이전에 숨겨진 채였다면(opacity 0) 다시 보이게
       lbImage.classList.add("lb-image-placeholder");
+      pendingGrabOffset = 0; // 여긴 revealWithDims를 안 거치므로 여기서 직접 정리
     }
 
     // 제목/작가/메타를 쉼표로 이어붙인 한 줄 캡션 - 드래그/터치로 선택·복사할 때
