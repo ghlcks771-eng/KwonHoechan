@@ -1813,12 +1813,32 @@
           if (match) capturedX = parseFloat(match[1].split(",")[4]) || 0;
         }
         capturedOffset = pendingSwipeCommit.offset + capturedX;
+        // winner가 처음 커밋 시작 시점엔 아직 로딩 전이라 캐시에 못 심었을 수 있음 -
+        // 지금은 시간이 좀 지나서 로딩됐을 가능성이 높으므로 여기서 다시 시도함
+        // (안 그러면 그 사이 잠깐 화면이 비어보이는 원인이 됨)
+        if (pendingSwipeCommit.winner.naturalWidth && pendingSwipeCommit.winnerFullSrc) {
+          imageDimsCache.set(pendingSwipeCommit.winnerFullSrc, {
+            w: pendingSwipeCommit.winner.naturalWidth,
+            h: pendingSwipeCommit.winner.naturalHeight
+          });
+        }
       }
       clearTimeout(pendingSwipeCommit.timer);
+      const wasCommittedGrab = !!pendingSwipeCommit.winner;
       pendingGrabOffset = capturedOffset; // openLightboxRaw가 실제로 보여주는 순간에 이 값을 소비함
       pendingSwipeCommit.run();
       pendingSwipeCommit = null;
       touchStartX = e.touches[0].clientX - capturedOffset;
+      if (wasCommittedGrab) {
+        // 새로 자리잡은 이미지를 기준으로 스와이프 준비(다음/이전 미리 대기)를 다시 해둠 -
+        // 이러면 이어서 드래그하거나, 이대로 손을 떼도 일반적인 스와이프처럼 커밋/스냅백
+        // 판정이 자연스럽게 이뤄짐(안 그러면 손을 떼도 그 자리에 계속 멈춰있게 됨)
+        touchSwiping = true;
+        setupSwipePeeks();
+        lbImage.style.transform = `translateX(${capturedOffset}px)`;
+        if (lbImagePeekNext.style.display !== "none") lbImagePeekNext.style.transform = `translateX(${capturedOffset}px)`;
+        if (lbImagePeekPrev.style.display !== "none") lbImagePeekPrev.style.transform = `translateX(${capturedOffset}px)`;
+      }
     } else {
       touchStartX = e.touches[0].clientX;
     }
@@ -1830,6 +1850,78 @@
     touchSwiping = false;
     lbImage.style.transition = "none";
   }, { passive: true });
+
+  // 다음/이전 그림을 양쪽에 모두 미리 대기시켜둠(방향을 바꿔도 항상 그림이 있게) -
+  // 스와이프가 처음 시작될 때뿐 아니라, 애니메이션 도중에 다시 잡아서 그 자리에서
+  // 이어서 드래그하게 될 때도 새 "현재 그림" 기준으로 다시 준비해야 하므로 함수로 뺌
+  function setupSwipePeeks() {
+    nextGap = imgWidth + 24;
+    prevGap = imgWidth + 24;
+
+    if (!(lightboxItems.length > 1 || (lightboxItems[lightboxIndex] && lightboxItems[lightboxIndex].kind === "work"))) return;
+
+    const nextStep = resolveSubStep(1);
+    const prevStep = resolveSubStep(-1);
+    const atExhibitionStart = lightboxSource && lightboxSource.type === "exhibition" && lightboxIndex === 0 && prevStep.type === "cross";
+
+    let nextSrc = "", nextThumb = null;
+    if (nextStep.type === "sub") {
+      const entry = getItemImageEntry(lightboxItems[lightboxIndex], nextStep.subIndex);
+      nextSrc = entry.src; nextThumb = entry.thumb;
+    } else if (lightboxItems.length > 1) {
+      const nextIndex = (lightboxIndex + 1) % lightboxItems.length;
+      const entry = getItemImageEntry(lightboxItems[nextIndex]);
+      nextSrc = entry.src; nextThumb = entry.thumb;
+    }
+
+    let prevSrc = "", prevThumb = null;
+    const hasPrevIndex = prevStep.type === "sub" || (!atExhibitionStart && lightboxItems.length > 1);
+    if (prevStep.type === "sub") {
+      const entry = getItemImageEntry(lightboxItems[lightboxIndex], prevStep.subIndex);
+      prevSrc = entry.src; prevThumb = entry.thumb;
+    } else if (hasPrevIndex) {
+      const prevIndex = (lightboxIndex - 1 + lightboxItems.length) % lightboxItems.length;
+      const prevItem = lightboxItems[prevIndex];
+      // 뒤로 가면서 부속 이미지 있는 작품으로 새로 들어가는 거면, 그 작품의 마지막
+      // 부속 이미지를 미리 보여줘야 실제로 넘어갔을 때(자연스러운 방향)와 일치함
+      if (prevItem && prevItem.kind === "work") {
+        const prevSubs = getWorkSubImages(prevItem.id);
+        const prevEntry = prevSubs[prevSubs.length - 1] || prevSubs[0];
+        prevSrc = prevEntry ? prevEntry.image : "";
+        prevThumb = prevEntry ? prevEntry.thumb : null;
+      } else {
+        const entry = getItemImageEntry(prevItem);
+        prevSrc = entry.src; prevThumb = entry.thumb;
+      }
+    }
+
+    nextFullSrc = nextSrc;
+    prevFullSrc = prevSrc;
+
+    [
+      { el: lbImagePeekNext, key: "next", hasIndex: true, src: nextSrc, thumb: nextThumb, offset: nextGap },
+      { el: lbImagePeekPrev, key: "prev", hasIndex: hasPrevIndex, src: prevSrc, thumb: prevThumb, offset: -prevGap }
+    ].forEach(({ el, key, hasIndex, src, thumb, offset }) => {
+      // 진짜로 갈 곳이 없는 경우(전시 경계 등)만 숨김 - 그 항목에 이미지가 없을 뿐인
+      // 경우는 자리표시자로 계속 보이게 해서 그 방향 스와이프가 막히지 않도록 함
+      if (!hasIndex) { el.style.display = "none"; return; }
+      // 크기/위치를 먼저 확정 - src보다 반드시 먼저여야 함(안 그러면 크기가 정해지기 전
+      // 잠깐 원본 픽셀 크기 그대로 작게 그려졌다가 커지는 것처럼 보일 수 있음)
+      const dims = src ? imageDimsCache.get(src) : null;
+      const fit = dims ? computeFitSize(dims.w, dims.h) : { w: imgWidth, h: imgHeight };
+      el.style.width = `${fit.w}px`;
+      el.style.height = `${fit.h}px`;
+      el.style.top = `${(window.innerHeight - fit.h) / 2}px`;
+      el.style.left = `${imgLeft + offset}px`;
+      el.style.transition = "none";
+      el.style.transform = "translateX(0px)";
+      el.style.display = "";
+      // 내용 지정 - 캐시로 이미 정확한 크기를 알고 있으면(대부분의 경우, 한 번이라도
+      // 봤던 이미지) 바로 보여주고, 처음 보는 이미지라 크기를 모르는 채로 임시값을
+      // 썼다면 실제로 로드된 뒤 진짜 치수로 다시 맞추고 보여줌
+      setPeekImageSrc(el, key, src, thumb, !!dims, offset);
+    });
+  }
 
   lbImageWrap.addEventListener("touchmove", (e) => {
     if (e.touches.length === 2 && pinchStartDist != null) {
@@ -1879,74 +1971,8 @@
     if (Math.abs(dx) <= Math.abs(dy) * 1.73) return;
 
     if (!touchSwiping) {
-      // 스와이프 시작 - 다음/이전 그림을 양쪽에 모두 미리 대기시켜둠 (방향을 바꿔도 항상 그림이 있게)
       touchSwiping = true;
-      nextGap = imgWidth + 24;
-      prevGap = imgWidth + 24;
-
-      if (lightboxItems.length > 1 || (lightboxItems[lightboxIndex] && lightboxItems[lightboxIndex].kind === "work")) {
-        const nextStep = resolveSubStep(1);
-        const prevStep = resolveSubStep(-1);
-        const atExhibitionStart = lightboxSource && lightboxSource.type === "exhibition" && lightboxIndex === 0 && prevStep.type === "cross";
-
-        let nextSrc = "", nextThumb = null;
-        if (nextStep.type === "sub") {
-          const entry = getItemImageEntry(lightboxItems[lightboxIndex], nextStep.subIndex);
-          nextSrc = entry.src; nextThumb = entry.thumb;
-        } else if (lightboxItems.length > 1) {
-          const nextIndex = (lightboxIndex + 1) % lightboxItems.length;
-          const entry = getItemImageEntry(lightboxItems[nextIndex]);
-          nextSrc = entry.src; nextThumb = entry.thumb;
-        }
-
-        let prevSrc = "", prevThumb = null;
-        const hasPrevIndex = prevStep.type === "sub" || (!atExhibitionStart && lightboxItems.length > 1);
-        if (prevStep.type === "sub") {
-          const entry = getItemImageEntry(lightboxItems[lightboxIndex], prevStep.subIndex);
-          prevSrc = entry.src; prevThumb = entry.thumb;
-        } else if (hasPrevIndex) {
-          const prevIndex = (lightboxIndex - 1 + lightboxItems.length) % lightboxItems.length;
-          const prevItem = lightboxItems[prevIndex];
-          // 뒤로 가면서 부속 이미지 있는 작품으로 새로 들어가는 거면, 그 작품의 마지막
-          // 부속 이미지를 미리 보여줘야 실제로 넘어갔을 때(자연스러운 방향)와 일치함
-          if (prevItem && prevItem.kind === "work") {
-            const prevSubs = getWorkSubImages(prevItem.id);
-            const prevEntry = prevSubs[prevSubs.length - 1] || prevSubs[0];
-            prevSrc = prevEntry ? prevEntry.image : "";
-            prevThumb = prevEntry ? prevEntry.thumb : null;
-          } else {
-            const entry = getItemImageEntry(prevItem);
-            prevSrc = entry.src; prevThumb = entry.thumb;
-          }
-        }
-
-        nextFullSrc = nextSrc;
-        prevFullSrc = prevSrc;
-
-        [
-          { el: lbImagePeekNext, key: "next", hasIndex: true, src: nextSrc, thumb: nextThumb, offset: nextGap },
-          { el: lbImagePeekPrev, key: "prev", hasIndex: hasPrevIndex, src: prevSrc, thumb: prevThumb, offset: -prevGap }
-        ].forEach(({ el, key, hasIndex, src, thumb, offset }) => {
-          // 진짜로 갈 곳이 없는 경우(전시 경계 등)만 숨김 - 그 항목에 이미지가 없을 뿐인
-          // 경우는 자리표시자로 계속 보이게 해서 그 방향 스와이프가 막히지 않도록 함
-          if (!hasIndex) { el.style.display = "none"; return; }
-          // 크기/위치를 먼저 확정 - src보다 반드시 먼저여야 함(안 그러면 크기가 정해지기 전
-          // 잠깐 원본 픽셀 크기 그대로 작게 그려졌다가 커지는 것처럼 보일 수 있음)
-          const dims = src ? imageDimsCache.get(src) : null;
-          const fit = dims ? computeFitSize(dims.w, dims.h) : { w: imgWidth, h: imgHeight };
-          el.style.width = `${fit.w}px`;
-          el.style.height = `${fit.h}px`;
-          el.style.top = `${(window.innerHeight - fit.h) / 2}px`;
-          el.style.left = `${imgLeft + offset}px`;
-          el.style.transition = "none";
-          el.style.transform = "translateX(0px)";
-          el.style.display = "";
-          // 내용 지정 - 캐시로 이미 정확한 크기를 알고 있으면(대부분의 경우, 한 번이라도
-          // 봤던 이미지) 바로 보여주고, 처음 보는 이미지라 크기를 모르는 채로 임시값을
-          // 썼다면 실제로 로드된 뒤 진짜 치수로 다시 맞추고 보여줌
-          setPeekImageSrc(el, key, src, thumb, !!dims, offset);
-        });
-      }
+      setupSwipePeeks();
     }
 
     lbImage.style.transform = `translateX(${dx}px)`;
@@ -2074,6 +2100,7 @@
         pendingSwipeCommit = {
           run: finishCommit,
           winner,
+          winnerFullSrc,
           offset: dir > 0 ? nextGap : -prevGap,
           timer: setTimeout(() => {
             pendingSwipeCommit = null;
