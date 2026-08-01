@@ -1502,6 +1502,7 @@
     lbImagePeekPrev.style.transform = "";
     lbImagePeekPrev.style.display = "none";
     lbImagePeekNext2.style.display = "none";
+    inExtraPeekMode = false; // abcd 모드 종료
     lbImagePeekPrev2.style.display = "none";
     applyImageBox();
     updateZoomState();
@@ -1669,6 +1670,7 @@
   // 스와이프 미리보기(peek) 이미지 전용 - next/prev 각각 독립적인 번호표로 관리해서,
   // 빠르게 여러 번 스와이프해도 오래된 배경 로딩이 나중에 엉뚱하게 덮어쓰지 않도록 함
   const peekLoadTokens = { next: 0, prev: 0, next2: 0, prev2: 0 };
+  let inExtraPeekMode = false; // 스와이프 도중 잡아서 abcd 4장 구성이 된 상태인지 - 이 동안은 어느 것도 원본으로 안 바꾸고 thumb로만 유지함
 
   function setPeekImageSrc(el, key, src, thumb, dimsKnown, offset) {
     const myToken = ++peekLoadTokens[key];
@@ -1710,10 +1712,23 @@
       });
     }
 
-    // peek(스와이프 중 양옆에 나타나는 미리보기)는 드래그 도중 원본으로 교체하지 않음 -
-    // 그 교체 작업(디코딩+치환)이 드래그 중간에 끼어들면 화면이 버벅일 수 있음. 대신
-    // 항상 thumb만 보여주고, 가운데 도착해서 메인 이미지로 승격된 뒤에야(기존
-    // openLightboxRaw의 thumb->원본 전환 로직을 통해) 원본으로 자연스럽게 바뀜
+    // ABCD(잡기로 확장된) 모드일 때는 원본으로 안 바꾸고 계속 thumb로만 유지함 - 포커스가
+    // C에 있다는 게 이 상태에서는 큰 의미가 없어서, 모드가 끝나고 최종적으로 어느 그림이
+    // 남을지 정해진 뒤에 그 그림에 대해서만 정상적으로 원본으로 바뀌게 함
+    if (thumb && thumb !== src && !inExtraPeekMode) {
+      const fullRes = new Image();
+      const swapPeekToFullRes = () => {
+        if (peekLoadTokens[key] !== myToken) return; // 그 사이 새로 스와이프 시작됨 - 무시
+        if (inExtraPeekMode) return; // 그 사이 ABCD 모드로 들어갔으면 여기서도 건너뜀
+        el.src = src;
+      };
+      fullRes.src = src;
+      if (fullRes.decode) {
+        fullRes.decode().then(swapPeekToFullRes).catch(swapPeekToFullRes);
+      } else {
+        fullRes.onload = swapPeekToFullRes;
+      }
+    }
   }
 
   // 지금 보고 있는 작품(work) 기준으로, 좌/우 한 스텝 이동했을 때의 결과를 계산함
@@ -1952,6 +1967,7 @@
   // 잡으면(포커스가 D가 됨) B까지, C에서 B 방향으로 가다가 잡으면(포커스가 B가 됨)
   // D까지 준비해서, 마음이 바뀌어 반대로 계속 이어가도 화면이 비지 않게 함
   function setupExtraPeek(dir) {
+    inExtraPeekMode = true; // abcd 4장 구성 시작 - 모든 이미지가 thumb로만 유지되도록
     const el = dir > 0 ? lbImagePeekPrev2 : lbImagePeekNext2;
     const other = dir > 0 ? lbImagePeekNext2 : lbImagePeekPrev2;
     other.style.display = "none"; // 반대쪽은 이번엔 안 씀
@@ -2108,6 +2124,7 @@
           lbImagePeekNext.style.transition = "";
           lbImagePeekPrev.style.transition = "";
           lbImagePeekNext2.style.display = "none";
+          inExtraPeekMode = false; // abcd 모드 종료
           lbImagePeekPrev2.style.display = "none";
           lbImage.style.transition = "";
           tryExhibitionBackToOverview();
@@ -2145,14 +2162,24 @@
         }
         loser.style.transition = "none";
         loser.style.display = "none";
-        // 잡기로 추가 생성된 요소(있다면)는 원래 잡았던 방향과 지금 커밋되는 방향이
-        // 다를 수 있어서(예: 반대로 되돌려서 커밋) 슬라이드 방향을 매번 정확히 계산하기
-        // 까다로움 - loser와 마찬가지로 애니메이션 없이 즉시 사라지게 해서 방향 오류
-        // 자체가 생길 수 없게 함
-        lbImagePeekNext2.style.transition = "none";
-        lbImagePeekNext2.style.display = "none";
-        lbImagePeekPrev2.style.transition = "none";
-        lbImagePeekPrev2.style.display = "none";
+        // 잡기로 추가 생성된 요소(있다면)도 같이 화면 밖으로 자연스럽게 슬라이드시킴 -
+        // "원래 잡았던 방향"으로 계산하면 실제 커밋 방향과 다를 때(반대로 되돌려서
+        // 커밋하는 경우) 엉뚱한 방향으로 튈 수 있어서, 대신 "지금 화면상 실제로 어느
+        // 쪽에 있는지"를 직접 재서 그 방향으로 더 밀어냄 - 항상 맞는 방향으로 움직임
+        [lbImagePeekNext2, lbImagePeekPrev2].forEach((el) => {
+          if (el.style.display === "none") return;
+          const rect = el.getBoundingClientRect();
+          const onLeftSide = (rect.left + rect.width / 2) < window.innerWidth / 2;
+          const computedTransform = getComputedStyle(el).transform;
+          let currentX = 0;
+          if (computedTransform && computedTransform !== "none") {
+            const match = computedTransform.match(/matrix\(([^)]+)\)/);
+            if (match) currentX = parseFloat(match[1].split(",")[4]) || 0;
+          }
+          el.style.transition = `transform ${duration}ms ease`;
+          el.style.transform = `translateX(${currentX + (onLeftSide ? -window.innerWidth : window.innerWidth)}px)`;
+        });
+        inExtraPeekMode = false; // abcd 모드 종료
 
         const finishCommit = () => {
           lbImagePeekNext.style.display = "none";
@@ -2160,6 +2187,7 @@
           lbImagePeekNext.style.transition = "";
           lbImagePeekPrev.style.transition = "";
           lbImagePeekNext2.style.display = "none";
+          inExtraPeekMode = false; // abcd 모드 종료
           lbImagePeekPrev2.style.display = "none";
           lbImage.style.transition = "none";
           lbImage.style.transform = ""; // 남아있던 이동값 제거 - 다음 제스처가 항상 제자리에서 시작하도록
@@ -2190,6 +2218,7 @@
           lbImagePeekNext.style.transition = "";
           lbImagePeekPrev.style.transition = "";
           lbImagePeekNext2.style.display = "none";
+          inExtraPeekMode = false; // abcd 모드 종료
           lbImagePeekPrev2.style.display = "none";
         };
         pendingSwipeCommit = {
@@ -2253,6 +2282,7 @@
       lbImagePeekNext.style.display = "none";
       lbImagePeekPrev.style.display = "none";
       lbImagePeekNext2.style.display = "none";
+      inExtraPeekMode = false; // abcd 모드 종료
       lbImagePeekPrev2.style.display = "none";
       applyImageBox();
       updateZoomState();
@@ -2292,6 +2322,9 @@
           // 로딩되는 사이에 닫기/스와이프/키보드/뒤로가기 등으로 다른 이미지로 넘어갔으면
           // (번호가 달라졌으면) 조용히 무시 - 엉뚱한 화면에 잘못 덮어씌우는 것 방지
           if (lightboxImageLoadToken !== myLoadToken) return;
+          // abcd 모드 도중이면 아직 원본으로 안 바꿈 - 모드가 끝나고 최종 이미지가
+          // 정해지면, 그때 그 이미지에 대해 openLightboxRaw가 새로 실행되며 정상 처리됨
+          if (inExtraPeekMode) return;
           // thumb를 보는 동안 사용자가 확대/이동해뒀을 수 있으므로, 원본으로 바뀔 때
           // 그 상태를 그대로 유지함(자리/배율을 리셋하지 않음) - 내용만 조용히 바뀜
           lbImage.src = image;
