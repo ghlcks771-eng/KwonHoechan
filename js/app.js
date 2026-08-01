@@ -1712,23 +1712,9 @@
       });
     }
 
-    // ABCD(잡기로 확장된) 모드일 때는 원본으로 안 바꾸고 계속 thumb로만 유지함 - 포커스가
-    // C에 있다는 게 이 상태에서는 큰 의미가 없어서, 모드가 끝나고 최종적으로 어느 그림이
-    // 남을지 정해진 뒤에 그 그림에 대해서만 정상적으로 원본으로 바뀌게 함
-    if (thumb && thumb !== src && !inExtraPeekMode) {
-      const fullRes = new Image();
-      const swapPeekToFullRes = () => {
-        if (peekLoadTokens[key] !== myToken) return; // 그 사이 새로 스와이프 시작됨 - 무시
-        if (inExtraPeekMode) return; // 그 사이 ABCD 모드로 들어갔으면 여기서도 건너뜀
-        el.src = src;
-      };
-      fullRes.src = src;
-      if (fullRes.decode) {
-        fullRes.decode().then(swapPeekToFullRes).catch(swapPeekToFullRes);
-      } else {
-        fullRes.onload = swapPeekToFullRes;
-      }
-    }
+    // peek(스와이프 중 양옆에 나타나는 미리보기)는 언제나 thumb만 보여주고, 드래그 도중
+    // 원본으로 바꾸지 않음 - 메인 이미지로 승격된 뒤에야(기존 openLightboxRaw의
+    // thumb->원본 전환 로직을 통해) 원본으로 자연스럽게 바뀜
   }
 
   // 지금 보고 있는 작품(work) 기준으로, 좌/우 한 스텝 이동했을 때의 결과를 계산함
@@ -1818,12 +1804,6 @@
     }
     if (e.touches.length !== 1) return;
     pinchStartDist = null;
-    if (pendingSwipeCommit) {
-      // 스와이프 도중 잡는 경우는 확대 상태가 아니어야 정상인데, scale이 어떤 이유로든
-      // 정확히 1이 아니게 되면(부동소수점 오차 등) "확대된 상태"로 잘못 인식돼서
-      // 세로 이동(팬)까지 반영해버리는 문제가 생길 수 있음 - 여기서 명시적으로 확정해둠
-      scale = 1;
-    }
     if (pendingSwipeCommit && pendingSwipeCommit.winner) {
       // 넘어가던 전환을 취소만 하면 화면이 잠깐 비어버림 - 대신 바로 완료시켜서
       // "잡아서 이어가는" 느낌으로, 다음 제스처는 항상 완성된 이미지에서 시작함.
@@ -1999,6 +1979,7 @@
 
   lbImageWrap.addEventListener("touchmove", (e) => {
     if (e.touches.length === 2 && pinchStartDist != null) {
+      e.preventDefault(); // 브라우저(인앱 브라우저 포함) 자체 핀치/스크롤 제스처 개입 방지
       const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
       const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
       // 앵커(이미지 안에서 지금 중점이 가리키는 지점의 비율)는 매 프레임 갱신되는 이전
@@ -2048,13 +2029,17 @@
       touchSwiping = true;
       setupSwipePeeks();
     }
+    // 가로 스와이프로 확정된 이상, 브라우저(카카오톡 등 인앱 브라우저 포함)가 자기
+    // 세로 스크롤/제스처로 끼어들지 않도록 명시적으로 막음 - 잡기로 이어받은 경우도
+    // 여기로 매 프레임 지나가므로 항상 일관되게 적용됨
+    e.preventDefault();
 
     lbImage.style.transform = `translateX(${dx}px)`;
     if (lbImagePeekNext.style.display !== "none") lbImagePeekNext.style.transform = `translateX(${dx}px)`;
     if (lbImagePeekPrev.style.display !== "none") lbImagePeekPrev.style.transform = `translateX(${dx}px)`;
     if (lbImagePeekNext2.style.display !== "none") lbImagePeekNext2.style.transform = `translateX(${dx}px)`;
     if (lbImagePeekPrev2.style.display !== "none") lbImagePeekPrev2.style.transform = `translateX(${dx}px)`;
-  }, { passive: true });
+  }, { passive: false });
 
   lbImageWrap.addEventListener("touchend", (e) => {
     const wasPinching = pinchStartDist != null;
