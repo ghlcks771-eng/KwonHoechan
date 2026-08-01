@@ -1710,19 +1710,10 @@
       });
     }
 
-    if (thumb && thumb !== src) {
-      const fullRes = new Image();
-      const swapPeekToFullRes = () => {
-        if (peekLoadTokens[key] !== myToken) return; // 그 사이 새로 스와이프 시작됨 - 무시
-        el.src = src;
-      };
-      fullRes.src = src;
-      if (fullRes.decode) {
-        fullRes.decode().then(swapPeekToFullRes).catch(swapPeekToFullRes);
-      } else {
-        fullRes.onload = swapPeekToFullRes;
-      }
-    }
+    // peek(스와이프 중 양옆에 나타나는 미리보기)는 드래그 도중 원본으로 교체하지 않음 -
+    // 그 교체 작업(디코딩+치환)이 드래그 중간에 끼어들면 화면이 버벅일 수 있음. 대신
+    // 항상 thumb만 보여주고, 가운데 도착해서 메인 이미지로 승격된 뒤에야(기존
+    // openLightboxRaw의 thumb->원본 전환 로직을 통해) 원본으로 자연스럽게 바뀜
   }
 
   // 지금 보고 있는 작품(work) 기준으로, 좌/우 한 스텝 이동했을 때의 결과를 계산함
@@ -2154,19 +2145,14 @@
         }
         loser.style.transition = "none";
         loser.style.display = "none";
-        // 잡기로 추가 생성된 요소(있다면)도 같이 화면 밖으로 슬라이드시킴 - 안 그러면
-        // 커밋 애니메이션 도중에 그 자리에 혼자 얼어붙어있는 것처럼 보임
-        [lbImagePeekNext2, lbImagePeekPrev2].forEach((el) => {
-          if (el.style.display === "none") return;
-          const currentTransform = getComputedStyle(el).transform;
-          let currentX = 0;
-          if (currentTransform && currentTransform !== "none") {
-            const match = currentTransform.match(/matrix\(([^)]+)\)/);
-            if (match) currentX = parseFloat(match[1].split(",")[4]) || 0;
-          }
-          el.style.transition = `transform ${duration}ms ease`;
-          el.style.transform = `translateX(${currentX + dir * -window.innerWidth}px)`;
-        });
+        // 잡기로 추가 생성된 요소(있다면)는 원래 잡았던 방향과 지금 커밋되는 방향이
+        // 다를 수 있어서(예: 반대로 되돌려서 커밋) 슬라이드 방향을 매번 정확히 계산하기
+        // 까다로움 - loser와 마찬가지로 애니메이션 없이 즉시 사라지게 해서 방향 오류
+        // 자체가 생길 수 없게 함
+        lbImagePeekNext2.style.transition = "none";
+        lbImagePeekNext2.style.display = "none";
+        lbImagePeekPrev2.style.transition = "none";
+        lbImagePeekPrev2.style.display = "none";
 
         const finishCommit = () => {
           lbImagePeekNext.style.display = "none";
