@@ -1511,11 +1511,14 @@
     // 아직 로딩 전이면 onload 핸들러가 initImageBox()를 호출함
   }
 
-  let suppressBoxResetOnLoad = false; // thumb->원본 교체 시, 사용자가 확대/이동해둔 상태를 유지하기 위한 표시
+  let suppressBoxResetToken = null; // thumb->원본 교체 시, 사용자가 확대/이동해둔 상태를 유지하기 위한 표시 (어느 이미지 차례인지 번호표로 구분)
 
   lbImage.addEventListener("load", () => {
     if (!lightbox.classList.contains("open")) return;
-    if (suppressBoxResetOnLoad) { suppressBoxResetOnLoad = false; return; }
+    // 번호표가 지금 요청과 정확히 일치할 때만 억제함 - 빠르게 여러 번 넘기면(A -> B -> C)
+    // A를 위해 걸어둔 억제 표시를 전혀 다른 이미지의 load 이벤트가 잘못 소비해서, 정작
+    // 그 이미지가 크기 확정/투명화 해제를 못 받고 넘어가는 일을 방지함
+    if (suppressBoxResetToken === lightboxImageLoadToken) { suppressBoxResetToken = null; return; }
     // load는 "다운로드 끝남"만 보장하고 "실제로 화면에 그릴 준비(디코딩) 끝남"까지는
     // 보장 안 함 - decode()로 한 번 더 확인한 다음에야 자리를 잡고 보여줌
     if (lbImage.decode) {
@@ -1770,6 +1773,7 @@
     lbInfo.classList.toggle("lb-info-hidden", captionHidden);
   }
   let nextGap = 0, prevGap = 0;
+  let nextFullSrc = "", prevFullSrc = ""; // 커밋 시점에 캐시를 미리 채우기 위해 원본(고화질) 주소를 기억해둠
 
   lbImageWrap.addEventListener("touchstart", (e) => {
     if (e.touches.length === 2) {
@@ -1889,6 +1893,9 @@
           }
         }
 
+        nextFullSrc = nextSrc;
+        prevFullSrc = prevSrc;
+
         [
           { el: lbImagePeekNext, key: "next", hasIndex: true, src: nextSrc, thumb: nextThumb, offset: nextGap },
           { el: lbImagePeekPrev, key: "prev", hasIndex: hasPrevIndex, src: prevSrc, thumb: prevThumb, offset: -prevGap }
@@ -2007,6 +2014,15 @@
         const loser = dir > 0 ? lbImagePeekPrev : lbImagePeekNext;
         const winnerGap = dir > 0 ? nextGap : prevGap;
         const hasWinner = dir > 0 ? hasNext : hasPrev;
+        const winnerFullSrc = dir > 0 ? nextFullSrc : prevFullSrc;
+
+        // winner(peek)는 스와이프하는 동안 이미 로드돼서 화면에 보이고 있던 실제 이미지임 -
+        // 그 실제 치수를 여기서 캐시에 미리 심어두면, 곧이어 실행될 openLightboxRaw가
+        // 100% 캐시 히트로 "투명화 없이 바로 배치"하는 빠른 경로를 확실히 타게 됨.
+        // (모바일처럼 네트워크가 느려서 미리 준비해두는 preload가 못 따라잡았을 때 특히 중요함)
+        if (winner.naturalWidth && winnerFullSrc) {
+          imageDimsCache.set(winnerFullSrc, { w: winner.naturalWidth, h: winner.naturalHeight });
+        }
 
         lbImage.style.transition = `transform ${duration}ms ease`;
         lbImage.style.transform = `translateX(${dir * -window.innerWidth}px)`;
@@ -2091,11 +2107,31 @@
       // thumb이 있고 원본이랑 다르면, 이미 갖고 있는(빠른) thumb을 먼저 보여주고,
       // 원본은 백그라운드에서 조용히 미리 로드한 다음 다 되면 자연스럽게 덮어씀
       const initialSrc = (thumb && thumb !== image) ? thumb : image;
-      // 이미지 크기(가로/세로)가 CSS에 따로 지정돼있지 않아서, 로딩이 끝나 크기가
-      // 확정되기(initImageBox) 전까지는 브라우저가 원본 픽셀 크기 그대로 잠깐 그려버릴 수
-      // 있음(작았다가 커지는 것처럼 보이는 원인) - 그래서 크기가 확정되기 전까진 아예
-      // 안 보이게 숨겨두고, initImageBox에서 정확한 크기가 다 잡힌 뒤에만 다시 보여줌
-      lbImage.style.opacity = "0";
+      // 옆 그림으로 넘어갈 걸 대비해 미리 치수를 캐싱해두는 로직(preloadNeighborDims)이
+      // 있어서, 키보드/스와이프로 넘어올 때는 대부분 이미 캐시에 치수가 있음 - 그러면
+      // 미리 정확한 크기로 배치해두고 투명화 없이 바로 보여줌(peek와 동일한 원리).
+      // 캐시가 없는 경우(세션 첫 이미지 등 미리 준비가 안 된 경우)에만, 크기가 확정되기
+      // 전까지 원본 픽셀 크기로 잠깐 그려지는 것을 막기 위해 투명화 후 decode 확인함
+      const cachedDims = imageDimsCache.get(image);
+      if (cachedDims) {
+        const fit = computeFitSize(cachedDims.w, cachedDims.h);
+        fitWidth = fit.w; fitHeight = fit.h; scale = 1;
+        imgWidth = fit.w; imgHeight = fit.h;
+        imgLeft = (window.innerWidth - fit.w) / 2;
+        imgTop = (window.innerHeight - fit.h) / 2;
+        lbImage.style.transition = "none";
+        lbImage.style.transform = "";
+        lbImage.style.opacity = "1";
+        lbImagePeekNext.style.display = "none";
+        lbImagePeekPrev.style.display = "none";
+        applyImageBox();
+        updateZoomState();
+        // 이미 배치를 다 끝냈으므로, 뒤이어 실제로 발생할 load 이벤트가 또 initImageBox를
+        // 중복 실행해서(그 사이 사용자가 확대했다면 그걸 잘못 리셋하는 일 등을) 막음
+        suppressBoxResetToken = myLoadToken;
+      } else {
+        lbImage.style.opacity = "0";
+      }
       lbImage.src = initialSrc;
       lbImage.alt = title || "";
       lbImage.style.display = "";
@@ -2108,7 +2144,7 @@
           if (lightboxImageLoadToken !== myLoadToken) return;
           // thumb를 보는 동안 사용자가 확대/이동해뒀을 수 있으므로, 원본으로 바뀔 때
           // 그 상태를 그대로 유지함(자리/배율을 리셋하지 않음) - 내용만 조용히 바뀜
-          suppressBoxResetOnLoad = true;
+          suppressBoxResetToken = myLoadToken;
           lbImage.src = image;
         };
         fullRes.src = image;
