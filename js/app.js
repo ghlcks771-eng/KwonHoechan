@@ -1507,28 +1507,14 @@
 
   function resetZoom() {
     if (lbImage.style.display === "none") return;
+    // 이미지가 아직 로딩 전이면 여기선 아무 것도 안 함 - 그 경우는 항상 openLightboxRaw가
+    // 자체적으로 새 이미지의 배치/줌 초기화까지 다 처리하므로 별도 처리 불필요
     if (lbImage.complete && lbImage.naturalWidth) initImageBox();
-    // 아직 로딩 전이면 onload 핸들러가 initImageBox()를 호출함
   }
 
-  let suppressBoxResetToken = null; // thumb->원본 교체 시, 사용자가 확대/이동해둔 상태를 유지하기 위한 표시 (어느 이미지 차례인지 번호표로 구분)
-
-  lbImage.addEventListener("load", () => {
-    if (!lightbox.classList.contains("open")) return;
-    // 번호표가 지금 요청과 정확히 일치할 때만 억제함 - 빠르게 여러 번 넘기면(A -> B -> C)
-    // A를 위해 걸어둔 억제 표시를 전혀 다른 이미지의 load 이벤트가 잘못 소비해서, 정작
-    // 그 이미지가 크기 확정/투명화 해제를 못 받고 넘어가는 일을 방지함
-    if (suppressBoxResetToken === lightboxImageLoadToken) { suppressBoxResetToken = null; return; }
-    // load는 "다운로드 끝남"만 보장하고 "실제로 화면에 그릴 준비(디코딩) 끝남"까지는
-    // 보장 안 함 - decode()로 한 번 더 확인한 다음에야 자리를 잡고 보여줌
-    if (lbImage.decode) {
-      lbImage.decode().then(() => {
-        if (lightbox.classList.contains("open")) initImageBox();
-      }).catch(() => { if (lightbox.classList.contains("open")) initImageBox(); });
-    } else {
-      initImageBox();
-    }
-  });
+  // (이미지 로딩 후 배치/보여주기는 이제 openLightboxRaw 안에서, 그 호출 전용 번호표로
+  //  자체 완결됨 - 여기 있던 전역 load 리스너는 여러 이미지가 겹쳐 넘어갈 때 번호표가
+  //  엉뚱한 이벤트에 소비되는 경합이 있어서 제거함)
 
   // 창 크기가 바뀌면(회전, 실제 창 크기 변경 등) 확대 상태를 초기화하고 가운데로 재배치
   // - 화면 밖으로 이미지가 나가버리는 것 방지.
@@ -2103,39 +2089,54 @@
 
     resetZoom();
     const myLoadToken = ++lightboxImageLoadToken;
+
+    // 이 호출(myLoadToken) 전용 "배치하고 보여주기" - 그 사이 다른 이미지로 넘어갔으면
+    // (번호표가 안 맞으면) 무조건 무시함. load 이벤트나 별도 억제 플래그에 기대지 않고
+    // 이 함수 안에서 모든 판단이 완결되도록 해서, 여러 이미지가 겹쳐 넘어갈 때도 안전함
+    const revealWithDims = (w, h) => {
+      if (lightboxImageLoadToken !== myLoadToken) return;
+      const fit = computeFitSize(w, h);
+      fitWidth = fit.w; fitHeight = fit.h; scale = 1;
+      imgWidth = fit.w; imgHeight = fit.h;
+      imgLeft = (window.innerWidth - fit.w) / 2;
+      imgTop = (window.innerHeight - fit.h) / 2;
+      lbImage.style.transition = "none";
+      lbImage.style.transform = "";
+      lbImage.style.opacity = "1";
+      lbImagePeekNext.style.display = "none";
+      lbImagePeekPrev.style.display = "none";
+      applyImageBox();
+      updateZoomState();
+    };
+
     if (image) {
       // thumb이 있고 원본이랑 다르면, 이미 갖고 있는(빠른) thumb을 먼저 보여주고,
       // 원본은 백그라운드에서 조용히 미리 로드한 다음 다 되면 자연스럽게 덮어씀
       const initialSrc = (thumb && thumb !== image) ? thumb : image;
-      // 옆 그림으로 넘어갈 걸 대비해 미리 치수를 캐싱해두는 로직(preloadNeighborDims)이
-      // 있어서, 키보드/스와이프로 넘어올 때는 대부분 이미 캐시에 치수가 있음 - 그러면
-      // 미리 정확한 크기로 배치해두고 투명화 없이 바로 보여줌(peek와 동일한 원리).
-      // 캐시가 없는 경우(세션 첫 이미지 등 미리 준비가 안 된 경우)에만, 크기가 확정되기
-      // 전까지 원본 픽셀 크기로 잠깐 그려지는 것을 막기 위해 투명화 후 decode 확인함
-      const cachedDims = imageDimsCache.get(image);
-      if (cachedDims) {
-        const fit = computeFitSize(cachedDims.w, cachedDims.h);
-        fitWidth = fit.w; fitHeight = fit.h; scale = 1;
-        imgWidth = fit.w; imgHeight = fit.h;
-        imgLeft = (window.innerWidth - fit.w) / 2;
-        imgTop = (window.innerHeight - fit.h) / 2;
-        lbImage.style.transition = "none";
-        lbImage.style.transform = "";
-        lbImage.style.opacity = "1";
-        lbImagePeekNext.style.display = "none";
-        lbImagePeekPrev.style.display = "none";
-        applyImageBox();
-        updateZoomState();
-        // 이미 배치를 다 끝냈으므로, 뒤이어 실제로 발생할 load 이벤트가 또 initImageBox를
-        // 중복 실행해서(그 사이 사용자가 확대했다면 그걸 잘못 리셋하는 일 등을) 막음
-        suppressBoxResetToken = myLoadToken;
-      } else {
-        lbImage.style.opacity = "0";
-      }
-      lbImage.src = initialSrc;
       lbImage.alt = title || "";
       lbImage.style.display = "";
       lbImage.classList.remove("lb-image-placeholder");
+
+      // 옆 그림으로 넘어갈 걸 대비해 미리 치수를 캐싱해두는 로직(preloadNeighborDims)이나,
+      // 스와이프 커밋 시점에 미리 심어두는 캐시가 있어서, 대부분은 이미 캐시에 치수가 있음
+      const cachedDims = imageDimsCache.get(image);
+      if (cachedDims) {
+        // 크기를 미리 알고 있음 - 투명화 없이 바로 배치하고 그 상태로 내용을 채움
+        revealWithDims(cachedDims.w, cachedDims.h);
+        lbImage.src = initialSrc;
+      } else {
+        // 크기를 모름 - 확정되기 전까지 원본 픽셀 크기로 잠깐 그려지는 것을 막기 위해
+        // 숨겨두고, 이 함수 안에서 직접 "그릴 준비(디코딩) 끝남"을 기다렸다가 배치함
+        lbImage.style.opacity = "0";
+        lbImage.src = initialSrc;
+        const waitReady = lbImage.decode
+          ? lbImage.decode()
+          : new Promise((resolve) => { lbImage.addEventListener("load", resolve, { once: true }); });
+        waitReady
+          .then(() => revealWithDims(lbImage.naturalWidth, lbImage.naturalHeight))
+          .catch(() => revealWithDims(lbImage.naturalWidth || 1200, lbImage.naturalHeight || 800));
+      }
+
       if (thumb && thumb !== image) {
         const fullRes = new Image();
         const swapToFullRes = () => {
@@ -2144,7 +2145,6 @@
           if (lightboxImageLoadToken !== myLoadToken) return;
           // thumb를 보는 동안 사용자가 확대/이동해뒀을 수 있으므로, 원본으로 바뀔 때
           // 그 상태를 그대로 유지함(자리/배율을 리셋하지 않음) - 내용만 조용히 바뀜
-          suppressBoxResetToken = myLoadToken;
           lbImage.src = image;
         };
         fullRes.src = image;
