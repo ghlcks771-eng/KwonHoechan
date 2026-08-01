@@ -2162,6 +2162,11 @@
 
     resetZoom();
     const myLoadToken = ++lightboxImageLoadToken;
+    // 이전 제스처에서 남아있을 수 있는 미리보기(peek)를 여기서 동기적으로 정리함 - revealWithDims
+    // 안에서 하면(캐시 미스로 늦게 실행될 수 있음) 그 사이 다른 곳에서 새로 세팅해둔 peek을
+    // 뒤늦게 지워버리는 경우가 있어서, 반드시 여기(이 함수의 맨 앞)에서 즉시 처리함
+    lbImagePeekNext.style.display = "none";
+    lbImagePeekPrev.style.display = "none";
 
     // 이 호출(myLoadToken) 전용 "배치하고 보여주기" - 그 사이 다른 이미지로 넘어갔으면
     // (번호표가 안 맞으면) 무조건 무시함. load 이벤트나 별도 억제 플래그에 기대지 않고
@@ -2180,8 +2185,6 @@
       lbImage.style.transform = pendingGrabOffset ? `translateX(${pendingGrabOffset}px)` : "";
       pendingGrabOffset = 0;
       lbImage.style.opacity = "1";
-      lbImagePeekNext.style.display = "none";
-      lbImagePeekPrev.style.display = "none";
       applyImageBox();
       updateZoomState();
     };
