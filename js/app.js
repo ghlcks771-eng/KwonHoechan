@@ -1512,7 +1512,16 @@
   }
 
   lbImage.addEventListener("load", () => {
-    if (lightbox.classList.contains("open")) initImageBox();
+    if (!lightbox.classList.contains("open")) return;
+    // load는 "다운로드 끝남"만 보장하고 "실제로 화면에 그릴 준비(디코딩) 끝남"까지는
+    // 보장 안 함 - decode()로 한 번 더 확인한 다음에야 자리를 잡고 보여줌
+    if (lbImage.decode) {
+      lbImage.decode().then(() => {
+        if (lightbox.classList.contains("open")) initImageBox();
+      }).catch(() => { if (lightbox.classList.contains("open")) initImageBox(); });
+    } else {
+      initImageBox();
+    }
   });
 
   // 창 크기가 바뀌면(회전, 실제 창 크기 변경 등) 확대 상태를 초기화하고 가운데로 재배치
@@ -1677,11 +1686,16 @@
     el.classList.remove("lb-image-placeholder");
     if (thumb && thumb !== src) {
       const fullRes = new Image();
-      fullRes.onload = () => {
+      const swapPeekToFullRes = () => {
         if (peekLoadTokens[key] !== myToken) return; // 그 사이 새로 스와이프 시작됨 - 무시
         el.src = src;
       };
       fullRes.src = src;
+      if (fullRes.decode) {
+        fullRes.decode().then(swapPeekToFullRes).catch(swapPeekToFullRes);
+      } else {
+        fullRes.onload = swapPeekToFullRes;
+      }
     }
   }
 
@@ -2070,13 +2084,21 @@
       lbImage.classList.remove("lb-image-placeholder");
       if (thumb && thumb !== image) {
         const fullRes = new Image();
-        fullRes.onload = () => {
+        const swapToFullRes = () => {
           // 로딩되는 사이에 닫기/스와이프/키보드/뒤로가기 등으로 다른 이미지로 넘어갔으면
           // (번호가 달라졌으면) 조용히 무시 - 엉뚱한 화면에 잘못 덮어씌우는 것 방지
           if (lightboxImageLoadToken !== myLoadToken) return;
           lbImage.src = image;
         };
         fullRes.src = image;
+        if (fullRes.decode) {
+          // decode()는 "다운로드"뿐 아니라 "실제로 화면에 그릴 준비"까지 끝난 걸 보장해줌 -
+          // load 이벤트만 믿으면(특히 모바일에서) 디코딩 지연 때문에 바꿔치는 순간 살짝
+          // 깜빡이거나 순간적으로 비었다가 나타날 수 있음
+          fullRes.decode().then(swapToFullRes).catch(swapToFullRes);
+        } else {
+          fullRes.onload = swapToFullRes;
+        }
       }
     } else {
       // 이미지가 없어도 display:none으로 숨기면 스와이프/팬 애니메이션이 화면에 안 보여서
