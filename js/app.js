@@ -2154,6 +2154,19 @@
         }
         loser.style.transition = "none";
         loser.style.display = "none";
+        // 잡기로 추가 생성된 요소(있다면)도 같이 화면 밖으로 슬라이드시킴 - 안 그러면
+        // 커밋 애니메이션 도중에 그 자리에 혼자 얼어붙어있는 것처럼 보임
+        [lbImagePeekNext2, lbImagePeekPrev2].forEach((el) => {
+          if (el.style.display === "none") return;
+          const currentTransform = getComputedStyle(el).transform;
+          let currentX = 0;
+          if (currentTransform && currentTransform !== "none") {
+            const match = currentTransform.match(/matrix\(([^)]+)\)/);
+            if (match) currentX = parseFloat(match[1].split(",")[4]) || 0;
+          }
+          el.style.transition = `transform ${duration}ms ease`;
+          el.style.transform = `translateX(${currentX + dir * -window.innerWidth}px)`;
+        });
 
         const finishCommit = () => {
           lbImagePeekNext.style.display = "none";
