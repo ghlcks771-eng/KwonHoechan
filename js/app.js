@@ -1501,6 +1501,8 @@
     lbImagePeekPrev.style.transition = "none";
     lbImagePeekPrev.style.transform = "";
     lbImagePeekPrev.style.display = "none";
+    lbImagePeekNext2.style.display = "none";
+    lbImagePeekPrev2.style.display = "none";
     applyImageBox();
     updateZoomState();
   }
@@ -1634,8 +1636,10 @@
     return Math.sqrt(dx * dx + dy * dy);
   }
 
+  const lbImagePeekPrev2 = document.getElementById("lb-image-peek-prev2");
   const lbImagePeekPrev = document.getElementById("lb-image-peek-prev");
   const lbImagePeekNext = document.getElementById("lb-image-peek-next");
+  const lbImagePeekNext2 = document.getElementById("lb-image-peek-next2");
 
   // 대표 이미지 + subImages(부속 이미지 다발)를 하나의 목록으로 - subImages가 없으면
   // 대표 이미지 하나짜리 목록
@@ -1664,7 +1668,7 @@
 
   // 스와이프 미리보기(peek) 이미지 전용 - next/prev 각각 독립적인 번호표로 관리해서,
   // 빠르게 여러 번 스와이프해도 오래된 배경 로딩이 나중에 엉뚱하게 덮어쓰지 않도록 함
-  const peekLoadTokens = { next: 0, prev: 0 };
+  const peekLoadTokens = { next: 0, prev: 0, next2: 0, prev2: 0 };
 
   function setPeekImageSrc(el, key, src, thumb, dimsKnown, offset) {
     const myToken = ++peekLoadTokens[key];
@@ -1821,6 +1825,7 @@
         if (match) capturedX = parseFloat(match[1].split(",")[4]) || 0;
       }
       const capturedOffset = pendingSwipeCommit.offset + capturedX;
+      const dir = pendingSwipeCommit.offset > 0 ? 1 : -1; // offset 부호로 원래 커밋 방향을 알아냄
       // winner가 처음 커밋 시작 시점엔 아직 로딩 전이라 캐시에 못 심었을 수 있음 -
       // 지금은 시간이 좀 지나서 로딩됐을 가능성이 높으므로 여기서 다시 시도함
       // (안 그러면 그 사이 잠깐 화면이 비어보이는 원인이 됨)
@@ -1840,9 +1845,13 @@
       // 판정이 자연스럽게 이뤄짐(안 그러면 손을 떼도 그 자리에 계속 멈춰있게 됨)
       touchSwiping = true;
       setupSwipePeeks();
+      // 원래 출발했던 지점 기준으로 반대쪽에 한 칸 더 준비해둠(abcd/bcde 구성)
+      setupExtraPeek(dir);
       lbImage.style.transform = `translateX(${capturedOffset}px)`;
       if (lbImagePeekNext.style.display !== "none") lbImagePeekNext.style.transform = `translateX(${capturedOffset}px)`;
       if (lbImagePeekPrev.style.display !== "none") lbImagePeekPrev.style.transform = `translateX(${capturedOffset}px)`;
+      if (lbImagePeekNext2.style.display !== "none") lbImagePeekNext2.style.transform = `translateX(${capturedOffset}px)`;
+      if (lbImagePeekPrev2.style.display !== "none") lbImagePeekPrev2.style.transform = `translateX(${capturedOffset}px)`;
     } else if (pendingSwipeCommit) {
       // 스냅백(덜 밀어서 제자리로 돌아가는 중) 도중에 잡은 경우 - 확정 커밋과는 완전히
       // 별도로 처리. lbImage 자신이 지금 실제로 어디 있는지(진행 중이던 애니메이션 값)를
@@ -1947,6 +1956,34 @@
     });
   }
 
+  // 스와이프 도중 잡아서 포커스가 넘어간 경우 전용 - 원래 출발했던 지점(C) 기준으로,
+  // 진행 방향의 반대쪽에 한 칸 더 미리 준비해둠. 예를 들어 C에서 D 방향으로 가다가
+  // 잡으면(포커스가 D가 됨) B까지, C에서 B 방향으로 가다가 잡으면(포커스가 B가 됨)
+  // D까지 준비해서, 마음이 바뀌어 반대로 계속 이어가도 화면이 비지 않게 함
+  function setupExtraPeek(dir) {
+    const el = dir > 0 ? lbImagePeekPrev2 : lbImagePeekNext2;
+    const other = dir > 0 ? lbImagePeekNext2 : lbImagePeekPrev2;
+    other.style.display = "none"; // 반대쪽은 이번엔 안 씀
+    if (lightboxItems.length < 3) { el.style.display = "none"; return; }
+    const idx = dir > 0
+      ? (lightboxIndex - 2 + lightboxItems.length) % lightboxItems.length
+      : (lightboxIndex + 2) % lightboxItems.length;
+    const item = lightboxItems[idx];
+    const entry = getItemImageEntry(item);
+    if (!entry || !entry.src) { el.style.display = "none"; return; }
+    const gapOffset = dir > 0 ? -(2 * prevGap) : (2 * nextGap);
+    const dims = imageDimsCache.get(entry.src);
+    const fit = dims ? computeFitSize(dims.w, dims.h) : { w: imgWidth, h: imgHeight };
+    el.style.width = `${fit.w}px`;
+    el.style.height = `${fit.h}px`;
+    el.style.top = `${(window.innerHeight - fit.h) / 2}px`;
+    el.style.left = `${imgLeft + gapOffset}px`;
+    el.style.transition = "none";
+    el.style.transform = "translateX(0px)";
+    el.style.display = "";
+    setPeekImageSrc(el, dir > 0 ? "prev2" : "next2", entry.src, entry.thumb, !!dims, gapOffset);
+  }
+
   lbImageWrap.addEventListener("touchmove", (e) => {
     if (e.touches.length === 2 && pinchStartDist != null) {
       const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
@@ -2002,6 +2039,8 @@
     lbImage.style.transform = `translateX(${dx}px)`;
     if (lbImagePeekNext.style.display !== "none") lbImagePeekNext.style.transform = `translateX(${dx}px)`;
     if (lbImagePeekPrev.style.display !== "none") lbImagePeekPrev.style.transform = `translateX(${dx}px)`;
+    if (lbImagePeekNext2.style.display !== "none") lbImagePeekNext2.style.transform = `translateX(${dx}px)`;
+    if (lbImagePeekPrev2.style.display !== "none") lbImagePeekPrev2.style.transform = `translateX(${dx}px)`;
   }, { passive: true });
 
   lbImageWrap.addEventListener("touchend", (e) => {
@@ -2067,7 +2106,7 @@
         // 그냥 제자리로 돌아오면서 배경 페이지만 조용히 바뀌도록 함
         lbImage.style.transition = "transform 0.2s ease";
         lbImage.style.transform = "";
-        [lbImagePeekNext, lbImagePeekPrev].forEach((el) => {
+        [lbImagePeekNext, lbImagePeekPrev, lbImagePeekNext2, lbImagePeekPrev2].forEach((el) => {
           if (el.style.display === "none") return;
           el.style.transition = "transform 0.2s ease";
           el.style.transform = "translateX(0px)";
@@ -2077,6 +2116,8 @@
           lbImagePeekPrev.style.display = "none";
           lbImagePeekNext.style.transition = "";
           lbImagePeekPrev.style.transition = "";
+          lbImagePeekNext2.style.display = "none";
+          lbImagePeekPrev2.style.display = "none";
           lbImage.style.transition = "";
           tryExhibitionBackToOverview();
         };
@@ -2119,6 +2160,8 @@
           lbImagePeekPrev.style.display = "none";
           lbImagePeekNext.style.transition = "";
           lbImagePeekPrev.style.transition = "";
+          lbImagePeekNext2.style.display = "none";
+          lbImagePeekPrev2.style.display = "none";
           lbImage.style.transition = "none";
           lbImage.style.transform = ""; // 남아있던 이동값 제거 - 다음 제스처가 항상 제자리에서 시작하도록
           stepLightboxHorizontal(dir); // 부속 이미지 그룹 안이면 그 안에서, 아니면 옆 작품으로
@@ -2137,7 +2180,7 @@
         // 덜 밀었으면 - 양쪽 다 같이 제자리로
         lbImage.style.transition = "transform 0.2s ease";
         lbImage.style.transform = "";
-        [lbImagePeekNext, lbImagePeekPrev].forEach((el) => {
+        [lbImagePeekNext, lbImagePeekPrev, lbImagePeekNext2, lbImagePeekPrev2].forEach((el) => {
           if (el.style.display === "none") return;
           el.style.transition = "transform 0.2s ease";
           el.style.transform = "translateX(0px)";
@@ -2147,6 +2190,8 @@
           lbImagePeekPrev.style.display = "none";
           lbImagePeekNext.style.transition = "";
           lbImagePeekPrev.style.transition = "";
+          lbImagePeekNext2.style.display = "none";
+          lbImagePeekPrev2.style.display = "none";
         };
         pendingSwipeCommit = {
           run: finishSnapback,
@@ -2208,6 +2253,8 @@
       lbImage.style.opacity = "1";
       lbImagePeekNext.style.display = "none";
       lbImagePeekPrev.style.display = "none";
+      lbImagePeekNext2.style.display = "none";
+      lbImagePeekPrev2.style.display = "none";
       applyImageBox();
       updateZoomState();
     };

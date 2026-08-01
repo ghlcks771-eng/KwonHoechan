@@ -1120,13 +1120,17 @@ body.lightbox-active #app { user-select: none; }
 
 #lb-image.lb-image-placeholder,
 #lb-image-peek-next.lb-image-placeholder,
-#lb-image-peek-prev.lb-image-placeholder {
+#lb-image-peek-next2.lb-image-placeholder,
+#lb-image-peek-prev.lb-image-placeholder,
+#lb-image-peek-prev2.lb-image-placeholder {
   background: #1c1c1c;
   border: 1px dashed rgba(255, 255, 255, 0.25);
 }
 
 #lb-image-peek-prev,
-#lb-image-peek-next {
+#lb-image-peek-prev2,
+#lb-image-peek-next,
+#lb-image-peek-next2 {
   position: fixed;
   display: block;
   max-width: none;
