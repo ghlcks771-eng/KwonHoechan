@@ -664,7 +664,7 @@ const TEXT_CATEGORIES = [
     title: { ko: "내가 쓴 글", en: "Written by Me" },
     children: [
       { id: "mine-preface", title: { ko: "서문", en: "Preface" }, posts: ["zs1","zs2","zs3","zc1","zg7"] },
-      { id: "mine-critique", title: { ko: "평문", en: "Critique" }, posts: [] }
+      { id: "mine-critique", title: { ko: "비평", en: "Critique" }, posts: [] }
     ]
   },
   {
@@ -672,7 +672,7 @@ const TEXT_CATEGORIES = [
     title: { ko: "외부인 글", en: "Written by Others" },
     children: [
       { id: "others-preface", title: { ko: "서문", en: "Preface" }, posts: ["zg1","zg2","zg3","zg4","zg5","zg6","zg8","zg9","zg10","zp1"] },
-      { id: "others-critique", title: { ko: "평문", en: "Critique" }, posts: ["zs1-1","zs3-1","zp1-1"] }
+      { id: "others-critique", title: { ko: "비평", en: "Critique" }, posts: ["zs1-1","zs3-1","zp1-1"] }
     ]
   }
 ];
@@ -959,7 +959,7 @@ const CV_GROUPS = [
 //    CV 목록 줄 순서: 연도, 전시명, 갤러리(venue), 지역(city)
 //    city는 선택 항목 - 비워두거나 아예 빼도 그 부분만 자동으로 안 나옵니다.
 //    essayPostIds : 서문으로 연결할 POSTS id 여러 개 ([] 이면 섹션 숨김, 여러 개면 1,2,3 번호 매김)
-//    criticPostIds: 평문으로 연결할 POSTS id 여러 개 ([] 이면 섹션 숨김)
+//    criticPostIds: 비평으로 연결할 POSTS id 여러 개 ([] 이면 섹션 숨김)
 //    installationImages, works도 비워두면 해당 섹션이 자동으로 숨겨집니다.
 // ------------------------------------------------------------
 const EXHIBITIONS = [

@@ -3519,9 +3519,13 @@
     function rightExtendWidth(el, rect) {
       if (!isMobile) return Math.min(rect.width / 2, DEFAULT_EXTEND_CAP); // 기본(데스크톱 포함)
       // 삼선(모바일) 환경 - 그 페이지의 기본 우측 여백(.wrap의 padding)은 그대로 남기고,
-      // 콘텐츠 영역 오른쪽 끝까지 클릭 가능하게 확장
+      // 콘텐츠 영역 오른쪽 끝까지만 클릭 가능하게 확장 (wrap 테두리 자체가 아니라
+      // 그 안쪽 패딩만큼 뺀 지점까지 - 안 그러면 화면 끝까지 가버림)
       const wrap = el.closest(".wrap");
-      const targetRight = wrap ? wrap.getBoundingClientRect().right : window.innerWidth;
+      if (!wrap) return Math.max(0, window.innerWidth - rect.right);
+      const wrapRect = wrap.getBoundingClientRect();
+      const wrapPaddingRight = parseFloat(getComputedStyle(wrap).paddingRight) || 0;
+      const targetRight = wrapRect.right - wrapPaddingRight;
       return Math.max(0, targetRight - rect.right);
     }
 
