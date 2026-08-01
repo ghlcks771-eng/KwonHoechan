@@ -1798,56 +1798,70 @@
     }
     if (e.touches.length !== 1) return;
     pinchStartDist = null;
-    if (pendingSwipeCommit) {
+    if (pendingSwipeCommit && pendingSwipeCommit.winner) {
       // 넘어가던 전환을 취소만 하면 화면이 잠깐 비어버림 - 대신 바로 완료시켜서
       // "잡아서 이어가는" 느낌으로, 다음 제스처는 항상 완성된 이미지에서 시작함.
-      // 단, 뚝 끊고 정중앙에서 시작하면 부자연스러우므로, winner가 있으면(확정 커밋인
-      // 경우) 그 순간 실제로 보이던 위치(진행 중이던 애니메이션 값)를 먼저 읽어둠
-      let capturedOffset = 0;
-      if (pendingSwipeCommit.winner) {
-        const computedTransform = getComputedStyle(pendingSwipeCommit.winner).transform;
-        let capturedX = 0;
-        if (computedTransform && computedTransform !== "none") {
-          // matrix(a, b, c, d, tx, ty) 형태에서 tx(가로 이동값)만 뽑아냄
-          const match = computedTransform.match(/matrix\(([^)]+)\)/);
-          if (match) capturedX = parseFloat(match[1].split(",")[4]) || 0;
-        }
-        capturedOffset = pendingSwipeCommit.offset + capturedX;
-        // winner가 처음 커밋 시작 시점엔 아직 로딩 전이라 캐시에 못 심었을 수 있음 -
-        // 지금은 시간이 좀 지나서 로딩됐을 가능성이 높으므로 여기서 다시 시도함
-        // (안 그러면 그 사이 잠깐 화면이 비어보이는 원인이 됨)
-        if (pendingSwipeCommit.winner.naturalWidth && pendingSwipeCommit.winnerFullSrc) {
-          imageDimsCache.set(pendingSwipeCommit.winnerFullSrc, {
-            w: pendingSwipeCommit.winner.naturalWidth,
-            h: pendingSwipeCommit.winner.naturalHeight
-          });
-        }
+      // 단, 뚝 끊고 정중앙에서 시작하면 부자연스러우므로, 그 순간 실제로 보이던 위치
+      // (진행 중이던 애니메이션 값)를 먼저 읽어둠
+      const computedTransform = getComputedStyle(pendingSwipeCommit.winner).transform;
+      let capturedX = 0;
+      if (computedTransform && computedTransform !== "none") {
+        // matrix(a, b, c, d, tx, ty) 형태에서 tx(가로 이동값)만 뽑아냄
+        const match = computedTransform.match(/matrix\(([^)]+)\)/);
+        if (match) capturedX = parseFloat(match[1].split(",")[4]) || 0;
+      }
+      const capturedOffset = pendingSwipeCommit.offset + capturedX;
+      // winner가 처음 커밋 시작 시점엔 아직 로딩 전이라 캐시에 못 심었을 수 있음 -
+      // 지금은 시간이 좀 지나서 로딩됐을 가능성이 높으므로 여기서 다시 시도함
+      // (안 그러면 그 사이 잠깐 화면이 비어보이는 원인이 됨)
+      if (pendingSwipeCommit.winner.naturalWidth && pendingSwipeCommit.winnerFullSrc) {
+        imageDimsCache.set(pendingSwipeCommit.winnerFullSrc, {
+          w: pendingSwipeCommit.winner.naturalWidth,
+          h: pendingSwipeCommit.winner.naturalHeight
+        });
       }
       clearTimeout(pendingSwipeCommit.timer);
-      const wasCommittedGrab = !!pendingSwipeCommit.winner;
       pendingGrabOffset = capturedOffset; // openLightboxRaw가 실제로 보여주는 순간에 이 값을 소비함
       pendingSwipeCommit.run();
       pendingSwipeCommit = null;
       touchStartX = e.touches[0].clientX - capturedOffset;
-      if (wasCommittedGrab) {
-        // 새로 자리잡은 이미지를 기준으로 스와이프 준비(다음/이전 미리 대기)를 다시 해둠 -
-        // 이러면 이어서 드래그하거나, 이대로 손을 떼도 일반적인 스와이프처럼 커밋/스냅백
-        // 판정이 자연스럽게 이뤄짐(안 그러면 손을 떼도 그 자리에 계속 멈춰있게 됨)
-        touchSwiping = true;
-        setupSwipePeeks();
-        lbImage.style.transform = `translateX(${capturedOffset}px)`;
-        if (lbImagePeekNext.style.display !== "none") lbImagePeekNext.style.transform = `translateX(${capturedOffset}px)`;
-        if (lbImagePeekPrev.style.display !== "none") lbImagePeekPrev.style.transform = `translateX(${capturedOffset}px)`;
+      // 새로 자리잡은 이미지를 기준으로 스와이프 준비(다음/이전 미리 대기)를 다시 해둠 -
+      // 이러면 이어서 드래그하거나, 이대로 손을 떼도 일반적인 스와이프처럼 커밋/스냅백
+      // 판정이 자연스럽게 이뤄짐(안 그러면 손을 떼도 그 자리에 계속 멈춰있게 됨)
+      touchSwiping = true;
+      setupSwipePeeks();
+      lbImage.style.transform = `translateX(${capturedOffset}px)`;
+      if (lbImagePeekNext.style.display !== "none") lbImagePeekNext.style.transform = `translateX(${capturedOffset}px)`;
+      if (lbImagePeekPrev.style.display !== "none") lbImagePeekPrev.style.transform = `translateX(${capturedOffset}px)`;
+    } else if (pendingSwipeCommit) {
+      // 스냅백(덜 밀어서 제자리로 돌아가는 중) 도중에 잡은 경우 - 확정 커밋과는 완전히
+      // 별도로 처리. lbImage 자신이 지금 실제로 어디 있는지(진행 중이던 애니메이션 값)를
+      // 읽어서 그 위치에서 그대로 이어받음
+      const computedTransform = getComputedStyle(lbImage).transform;
+      let capturedOffset = 0;
+      if (computedTransform && computedTransform !== "none") {
+        const match = computedTransform.match(/matrix\(([^)]+)\)/);
+        if (match) capturedOffset = parseFloat(match[1].split(",")[4]) || 0;
       }
+      clearTimeout(pendingSwipeCommit.timer);
+      pendingSwipeCommit.run(); // finishSnapback - peek 정리만 함, lbImage는 안 건드림
+      pendingSwipeCommit = null;
+      lbImage.style.transition = "none";
+      lbImage.style.transform = `translateX(${capturedOffset}px)`;
+      touchStartX = e.touches[0].clientX - capturedOffset;
+      touchSwiping = true;
+      setupSwipePeeks();
+      if (lbImagePeekNext.style.display !== "none") lbImagePeekNext.style.transform = `translateX(${capturedOffset}px)`;
+      if (lbImagePeekPrev.style.display !== "none") lbImagePeekPrev.style.transform = `translateX(${capturedOffset}px)`;
     } else {
       touchStartX = e.touches[0].clientX;
+      touchSwiping = false;
     }
     touchStartY = e.touches[0].clientY;
     touchStartTime = Date.now();
     touchPanStartLeft = imgLeft;
     touchPanStartTop = imgTop;
     touchActive = true;
-    touchSwiping = false;
     lbImage.style.transition = "none";
   }, { passive: true });
 
