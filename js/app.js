@@ -2059,6 +2059,11 @@
       // thumb이 있고 원본이랑 다르면, 이미 갖고 있는(빠른) thumb을 먼저 보여주고,
       // 원본은 백그라운드에서 조용히 미리 로드한 다음 다 되면 자연스럽게 덮어씀
       const initialSrc = (thumb && thumb !== image) ? thumb : image;
+      // 이미지 크기(가로/세로)가 CSS에 따로 지정돼있지 않아서, 로딩이 끝나 크기가
+      // 확정되기(initImageBox) 전까지는 브라우저가 원본 픽셀 크기 그대로 잠깐 그려버릴 수
+      // 있음(작았다가 커지는 것처럼 보이는 원인) - 그래서 크기가 확정되기 전까진 아예
+      // 안 보이게 숨겨두고, initImageBox에서 정확한 크기가 다 잡힌 뒤에만 다시 보여줌
+      lbImage.style.opacity = "0";
       lbImage.src = initialSrc;
       lbImage.alt = title || "";
       lbImage.style.display = "";
@@ -2079,6 +2084,7 @@
       lbImage.removeAttribute("src");
       lbImage.alt = title || "";
       lbImage.style.display = "";
+      lbImage.style.opacity = "1"; // 혹시 이전에 숨겨진 채였다면(opacity 0) 다시 보이게
       lbImage.classList.add("lb-image-placeholder");
     }
 
