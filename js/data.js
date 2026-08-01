@@ -519,7 +519,13 @@ ab3: {
 
   ad4: {
     thumb: "thumb/!ad4.jpg", image: "images/ad4.jpg", title: { ko: "풍경 조각 1", en: "Landscape Piece 1" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
-    subImages: ["images/ad4-1.jpg", "images/ad4-2.jpg", "images/ad4-3.jpg", "images/ad4-4.jpg", "images/ad4-5.jpg"],
+    subImages: [
+      { thumb: "images/!ad4-1.jpg",image: "images/ad4-1.jpg" },
+      { thumb: "images/!ad4-2.jpg",image: "images/ad4-2.jpg" },
+      { thumb: "images/!ad4-3.jpg",image: "images/ad4-3.jpg" },
+      { thumb: "images/!ad4-4.jpg",image: "images/ad4-4.jpg" },
+      { thumb: "images/!ad4-5.jpg",image: "images/ad4-5.jpg" }
+      ],
     year: "2025",
     medium: { ko: "천 접착제 코팅, 폴리에스터 실로 꿰맨 캔버스 위에 아크릴릭, 콩테", en: "acrylic and conte on canvas sewn with polyester thread and coated with textile adhesive" },
     size: "98(h)x27x17cm",
@@ -527,7 +533,14 @@ ab3: {
   },
 ad5: {
     thumb: "thumb/!ad5.jpg", image: "images/ad5.jpg", title: { ko: "풍경 조각 2", en: "Landscape Piece 2" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
-    subImages: ["images/ad5-1.jpg", "images/ad5-2.jpg", "images/ad5-3.jpg", "images/ad5-4.jpg", "images/ad5-5.jpg", "images/ad5-6.jpg"],
+    subImages: [
+      { thumb: "images/!ad5-1.jpg",image: "images/ad5-1.jpg" },
+      { thumb: "images/!ad5-2.jpg",image: "images/ad5-2.jpg" },
+      { thumb: "images/!ad5-3.jpg",image: "images/ad5-3.jpg" },
+      { thumb: "images/!ad5-4.jpg",image: "images/ad5-4.jpg" },
+      { thumb: "images/!ad5-5.jpg",image: "images/ad5-5.jpg" },
+      { thumb: "images/!ad5-6.jpg",image: "images/ad5-6.jpg" }
+    ],
     year: "2025",
     medium: { ko: "천 접착제 코팅, 폴리에스터 실로 꿰맨 캔버스 위에 아크릴릭, 콩테, 나무", en: "acrylic, conte on canvas sewn with polyester thread and coated with textile adhesive and wood" },
     size: "86(h)x124x27cm",
@@ -535,7 +548,15 @@ ad5: {
   },
   ad6: {
     thumb: "thumb/!ad6.jpg", image: "images/ad6.jpg", title: { ko: "풍경 조각 3", en: "Landscape Piece 3" }, artist: { ko: "권회찬", en: "Kwon Hoechan" },
-    subImages: ["images/ad6-1.jpg", "images/ad6-2.jpg", "images/ad6-3.jpg", "images/ad6-4.jpg", "images/ad6-5.jpg", "images/ad6-6.jpg", "images/ad6-7.jpg"],
+    subImages: [
+      { thumb: "images/!ad6-1.jpg",image: "images/ad6-1.jpg" },
+      { thumb: "images/!ad6-2.jpg",image: "images/ad6-2.jpg" },
+      { thumb: "images/!ad6-3.jpg",image: "images/ad6-3.jpg" },
+      { thumb: "images/!ad6-4.jpg",image: "images/ad6-4.jpg" },
+      { thumb: "images/!ad6-5.jpg",image: "images/ad6-5.jpg" },
+      { thumb: "images/!ad6-6.jpg",image: "images/ad6-6.jpg" },
+      { thumb: "images/!ad6-7.jpg",image: "images/ad6-7.jpg" }
+      ],
     year: "2025",
     medium: { ko: "천 접착제 코팅, 폴리에스터 실로 꿰맨 캔버스 위에 아크릴릭", en: "acrylic and conte on canvas sewn with polyester thread and coated with textile adhesive" },
     size: "99(h)x47x33cm",

@@ -1638,19 +1638,51 @@
 
   // 대표 이미지 + subImages(부속 이미지 다발)를 하나의 목록으로 - subImages가 없으면
   // 대표 이미지 하나짜리 목록
+  // 대표 이미지 + subImages(부속 이미지 다발)를 {image, thumb} 객체 배열로 반환.
+  // subImages의 각 항목은 문자열("경로")로 쓰거나 {image, thumb} 객체로 써도 둘 다 지원됨
   function getWorkSubImages(workId) {
     const w = WORKS[workId];
     if (!w) return [];
-    return [w.image, ...(w.subImages || [])];
+    const normalize = (s) => (typeof s === "string" ? { image: s, thumb: null } : { image: s.image, thumb: s.thumb || null });
+    return [{ image: w.image, thumb: w.thumb || null }, ...(w.subImages || []).map(normalize)];
+  }
+
+  function getItemImageEntry(item, subIndex) {
+    if (!item) return { src: "", thumb: null };
+    if (item.kind === "work") {
+      const subs = getWorkSubImages(item.id);
+      const entry = subs[subIndex || 0] || subs[0];
+      return entry ? { src: entry.image, thumb: entry.thumb } : { src: "", thumb: null };
+    }
+    return { src: item.image || "", thumb: item.thumb || null };
   }
 
   function getItemImageSrc(item, subIndex) {
-    if (!item) return "";
-    if (item.kind === "work") {
-      const subs = getWorkSubImages(item.id);
-      return subs[subIndex || 0] || subs[0] || "";
+    return getItemImageEntry(item, subIndex).src;
+  }
+
+  // 스와이프 미리보기(peek) 이미지 전용 - next/prev 각각 독립적인 번호표로 관리해서,
+  // 빠르게 여러 번 스와이프해도 오래된 배경 로딩이 나중에 엉뚱하게 덮어쓰지 않도록 함
+  const peekLoadTokens = { next: 0, prev: 0 };
+
+  function setPeekImageSrc(el, key, src, thumb) {
+    const myToken = ++peekLoadTokens[key];
+    if (!src) {
+      el.removeAttribute("src");
+      el.classList.add("lb-image-placeholder");
+      return;
     }
-    return item.image || "";
+    const initialSrc = (thumb && thumb !== src) ? thumb : src;
+    el.src = initialSrc;
+    el.classList.remove("lb-image-placeholder");
+    if (thumb && thumb !== src) {
+      const fullRes = new Image();
+      fullRes.onload = () => {
+        if (peekLoadTokens[key] !== myToken) return; // 그 사이 새로 스와이프 시작됨 - 무시
+        el.src = src;
+      };
+      fullRes.src = src;
+    }
   }
 
   // 지금 보고 있는 작품(work) 기준으로, 좌/우 한 스텝 이동했을 때의 결과를 계산함
@@ -1804,18 +1836,21 @@
         const prevStep = resolveSubStep(-1);
         const atExhibitionStart = lightboxSource && lightboxSource.type === "exhibition" && lightboxIndex === 0 && prevStep.type === "cross";
 
-        let nextSrc = "";
+        let nextSrc = "", nextThumb = null;
         if (nextStep.type === "sub") {
-          nextSrc = getItemImageSrc(lightboxItems[lightboxIndex], nextStep.subIndex);
+          const entry = getItemImageEntry(lightboxItems[lightboxIndex], nextStep.subIndex);
+          nextSrc = entry.src; nextThumb = entry.thumb;
         } else if (lightboxItems.length > 1) {
           const nextIndex = (lightboxIndex + 1) % lightboxItems.length;
-          nextSrc = getItemImageSrc(lightboxItems[nextIndex]);
+          const entry = getItemImageEntry(lightboxItems[nextIndex]);
+          nextSrc = entry.src; nextThumb = entry.thumb;
         }
 
-        let prevSrc = "";
+        let prevSrc = "", prevThumb = null;
         const hasPrevIndex = prevStep.type === "sub" || (!atExhibitionStart && lightboxItems.length > 1);
         if (prevStep.type === "sub") {
-          prevSrc = getItemImageSrc(lightboxItems[lightboxIndex], prevStep.subIndex);
+          const entry = getItemImageEntry(lightboxItems[lightboxIndex], prevStep.subIndex);
+          prevSrc = entry.src; prevThumb = entry.thumb;
         } else if (hasPrevIndex) {
           const prevIndex = (lightboxIndex - 1 + lightboxItems.length) % lightboxItems.length;
           const prevItem = lightboxItems[prevIndex];
@@ -1823,26 +1858,23 @@
           // 부속 이미지를 미리 보여줘야 실제로 넘어갔을 때(자연스러운 방향)와 일치함
           if (prevItem && prevItem.kind === "work") {
             const prevSubs = getWorkSubImages(prevItem.id);
-            prevSrc = prevSubs[prevSubs.length - 1] || prevSubs[0] || "";
+            const prevEntry = prevSubs[prevSubs.length - 1] || prevSubs[0];
+            prevSrc = prevEntry ? prevEntry.image : "";
+            prevThumb = prevEntry ? prevEntry.thumb : null;
           } else {
-            prevSrc = getItemImageSrc(prevItem);
+            const entry = getItemImageEntry(prevItem);
+            prevSrc = entry.src; prevThumb = entry.thumb;
           }
         }
 
         [
-          { el: lbImagePeekNext, hasIndex: true, src: nextSrc, offset: nextGap },
-          { el: lbImagePeekPrev, hasIndex: hasPrevIndex, src: prevSrc, offset: -prevGap }
-        ].forEach(({ el, hasIndex, src, offset }) => {
+          { el: lbImagePeekNext, key: "next", hasIndex: true, src: nextSrc, thumb: nextThumb, offset: nextGap },
+          { el: lbImagePeekPrev, key: "prev", hasIndex: hasPrevIndex, src: prevSrc, thumb: prevThumb, offset: -prevGap }
+        ].forEach(({ el, key, hasIndex, src, thumb, offset }) => {
           // 진짜로 갈 곳이 없는 경우(전시 경계 등)만 숨김 - 그 항목에 이미지가 없을 뿐인
           // 경우는 자리표시자로 계속 보이게 해서 그 방향 스와이프가 막히지 않도록 함
           if (!hasIndex) { el.style.display = "none"; return; }
-          if (src) {
-            el.src = src;
-            el.classList.remove("lb-image-placeholder");
-          } else {
-            el.removeAttribute("src");
-            el.classList.add("lb-image-placeholder");
-          }
+          setPeekImageSrc(el, key, src, thumb);
           const dims = src ? imageDimsCache.get(src) : null;
           const fit = dims ? computeFitSize(dims.w, dims.h) : { w: imgWidth, h: imgHeight };
           el.style.width = `${fit.w}px`;
@@ -2018,13 +2050,29 @@
     }
   }
 
-  function openLightboxRaw({ image, title, artist, meta, note, links }) {
+  let lightboxImageLoadToken = 0; // 이 번호가 바뀌면(다른 이미지로 넘어가면) 이전 백그라운드 로딩은 무시됨
+
+  function openLightboxRaw({ image, thumb, title, artist, meta, note, links }) {
     resetZoom();
+    const myLoadToken = ++lightboxImageLoadToken;
     if (image) {
-      lbImage.src = image;
+      // thumb이 있고 원본이랑 다르면, 이미 갖고 있는(빠른) thumb을 먼저 보여주고,
+      // 원본은 백그라운드에서 조용히 미리 로드한 다음 다 되면 자연스럽게 덮어씀
+      const initialSrc = (thumb && thumb !== image) ? thumb : image;
+      lbImage.src = initialSrc;
       lbImage.alt = title || "";
       lbImage.style.display = "";
       lbImage.classList.remove("lb-image-placeholder");
+      if (thumb && thumb !== image) {
+        const fullRes = new Image();
+        fullRes.onload = () => {
+          // 로딩되는 사이에 닫기/스와이프/키보드/뒤로가기 등으로 다른 이미지로 넘어갔으면
+          // (번호가 달라졌으면) 조용히 무시 - 엉뚱한 화면에 잘못 덮어씌우는 것 방지
+          if (lightboxImageLoadToken !== myLoadToken) return;
+          lbImage.src = image;
+        };
+        fullRes.src = image;
+      }
     } else {
       // 이미지가 없어도 display:none으로 숨기면 스와이프/팬 애니메이션이 화면에 안 보여서
       // "동작 안 하는 것"처럼 느껴짐 - 숨기지 않고 자리표시자 형태로 계속 보이게 함
@@ -2080,7 +2128,9 @@
       const w = WORKS[item.id];
       if (!w) return;
       const subs = getWorkSubImages(item.id);
-      const currentSrc = subs[lightboxSubIndex] || subs[0] || w.image;
+      const currentEntry = subs[lightboxSubIndex] || subs[0] || { image: w.image, thumb: w.thumb || null };
+      const currentSrc = currentEntry.image;
+      const currentThumb = currentEntry.thumb;
       let links = [];
       if (lightboxContext === "exhibition") {
         links = [{ href: workGalleryHref(item.id), label: `${ui("exploreWork")}`, kind: "work", workId: item.id }];
@@ -2109,6 +2159,7 @@
 
       openLightboxRaw({
         image: currentSrc,
+        thumb: currentThumb,
         title: t(w.title),
         artist: t(w.artist),
         meta: `${w.year}, ${t(w.medium)}, ${w.size}${subs.length > 1 ? ` — ${lightboxSubIndex + 1} / ${subs.length}` : ""}`,
@@ -2116,7 +2167,7 @@
         links
       });
     } else if (item.kind === "install") {
-      openLightboxRaw({ image: item.image, title: item.caption || "", artist: "", meta: "", note: item.note || "", links: [] });
+      openLightboxRaw({ image: item.image, thumb: item.thumb, title: item.caption || "", artist: "", meta: "", note: item.note || "", links: [] });
     }
   }
 
@@ -2135,7 +2186,7 @@
 
   function openInstallLightbox(index, images, source) {
     lightboxSubIndex = 0;
-    lightboxItems = images.map((img) => ({ kind: "install", image: img.image, caption: t(img.caption), note: t(img.note) }));
+    lightboxItems = images.map((img) => ({ kind: "install", image: img.image, thumb: img.thumb, caption: t(img.caption), note: t(img.note) }));
     lightboxIndex = index;
     lightboxContext = "install";
     lightboxSource = source || null;
