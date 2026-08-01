@@ -2143,7 +2143,6 @@
         const winner = dir > 0 ? lbImagePeekNext : lbImagePeekPrev;
         const loser = dir > 0 ? lbImagePeekPrev : lbImagePeekNext;
         const winnerGap = dir > 0 ? nextGap : prevGap;
-        const hasWinner = dir > 0 ? hasNext : hasPrev;
         const winnerFullSrc = dir > 0 ? nextFullSrc : prevFullSrc;
 
         // winner(peek)는 스와이프하는 동안 이미 로드돼서 화면에 보이고 있던 실제 이미지임 -
@@ -2154,31 +2153,19 @@
           imageDimsCache.set(winnerFullSrc, { w: winner.naturalWidth, h: winner.naturalHeight });
         }
 
-        lbImage.style.transition = `transform ${duration}ms ease`;
-        lbImage.style.transform = `translateX(${dir * -window.innerWidth}px)`;
-        if (hasWinner) {
-          winner.style.transition = `transform ${duration}ms ease`;
-          winner.style.transform = `translateX(${-dir * winnerGap}px)`;
-        }
+        // 모든 요소(lbImage, 각 peek)에 "같은 하나의 목표 이동값"을 적용함 - winner가
+        // 정확히 가운데(자기 offset만큼 되돌아온 지점)로 오게 되는 값. 다들 원래 서로
+        // 다른 간격(offset)으로 배치돼있었으니, 똑같은 값만큼 같이 밀면 서로의 상대적
+        // 거리(간격)가 그대로 유지된 채 자연스럽게 이동함 - 요소마다 "어디로 가야
+        // 하는지"를 따로 계산할 필요가 없어져서, 방향이 꼬일 여지 자체가 없어짐
+        const uniformTarget = dir * -winnerGap;
+        [lbImage, lbImagePeekNext, lbImagePeekPrev, lbImagePeekNext2, lbImagePeekPrev2].forEach((el) => {
+          if (el !== lbImage && el.style.display === "none") return;
+          el.style.transition = `transform ${duration}ms ease`;
+          el.style.transform = `translateX(${uniformTarget}px)`;
+        });
         loser.style.transition = "none";
         loser.style.display = "none";
-        // 잡기로 추가 생성된 요소(있다면)도 같이 화면 밖으로 자연스럽게 슬라이드시킴 -
-        // "원래 잡았던 방향"으로 계산하면 실제 커밋 방향과 다를 때(반대로 되돌려서
-        // 커밋하는 경우) 엉뚱한 방향으로 튈 수 있어서, 대신 "지금 화면상 실제로 어느
-        // 쪽에 있는지"를 직접 재서 그 방향으로 더 밀어냄 - 항상 맞는 방향으로 움직임
-        [lbImagePeekNext2, lbImagePeekPrev2].forEach((el) => {
-          if (el.style.display === "none") return;
-          const rect = el.getBoundingClientRect();
-          const onLeftSide = (rect.left + rect.width / 2) < window.innerWidth / 2;
-          const computedTransform = getComputedStyle(el).transform;
-          let currentX = 0;
-          if (computedTransform && computedTransform !== "none") {
-            const match = computedTransform.match(/matrix\(([^)]+)\)/);
-            if (match) currentX = parseFloat(match[1].split(",")[4]) || 0;
-          }
-          el.style.transition = `transform ${duration}ms ease`;
-          el.style.transform = `translateX(${currentX + (onLeftSide ? -window.innerWidth : window.innerWidth)}px)`;
-        });
         inExtraPeekMode = false; // abcd 모드 종료
 
         const finishCommit = () => {
@@ -2218,8 +2205,13 @@
           lbImagePeekNext.style.transition = "";
           lbImagePeekPrev.style.transition = "";
           lbImagePeekNext2.style.display = "none";
-          inExtraPeekMode = false; // abcd 모드 종료
           lbImagePeekPrev2.style.display = "none";
+          // abcd 모드였다면(원본 교체가 그동안 계속 억제돼있었음) - 이 경우는 원래
+          // 이미지 그대로 머무는 거라 openLightboxRaw가 다시 안 불려서 원본 교체를
+          // 재시도할 기회가 없음. 여기서 같은 이미지를 명시적으로 다시 열어서
+          // 원본 교체를 새로 시작함
+          if (inExtraPeekMode) openLightboxItem(lightboxItems[lightboxIndex]);
+          inExtraPeekMode = false; // abcd 모드 종료
         };
         pendingSwipeCommit = {
           run: finishSnapback,
