@@ -1755,12 +1755,22 @@
     } else if (lightboxItems.length > 1) {
       const nextIdx = (lightboxIndex + 1) % lightboxItems.length;
       preloadDims(getItemImageSrc(lightboxItems[nextIdx]));
+      // 한 칸 더(두 칸째)도 미리 캐싱해둠 - 스와이프 중간에 잡아서 포커스가 한 칸
+      // 넘어간 상태가 될 수 있는데, 그 너머 그림도 이미 캐싱돼있어야 바로 보임
+      if (lightboxItems.length > 2) {
+        const next2Idx = (lightboxIndex + 2) % lightboxItems.length;
+        preloadDims(getItemImageSrc(lightboxItems[next2Idx]));
+      }
     }
     if (prevStep.type === "sub") {
       preloadDims(getItemImageSrc(lightboxItems[lightboxIndex], prevStep.subIndex));
     } else if (lightboxItems.length > 1) {
       const prevIdx = (lightboxIndex - 1 + lightboxItems.length) % lightboxItems.length;
       preloadDims(getItemImageSrc(lightboxItems[prevIdx]));
+      if (lightboxItems.length > 2) {
+        const prev2Idx = (lightboxIndex - 2 + lightboxItems.length) % lightboxItems.length;
+        preloadDims(getItemImageSrc(lightboxItems[prev2Idx]));
+      }
     }
   }
 
@@ -2046,8 +2056,10 @@
       const atExhibitionStart = lightboxSource && lightboxSource.type === "exhibition" && lightboxIndex === 0
         && resolveSubStep(-1).type === "cross";
       const dirHasTarget = dx < 0 ? hasNext : (hasPrev || atExhibitionStart);
-      // 충분히 밀었거나(거리), 짧아도 빠르게 휙 넘겼으면(속도) 커밋
-      const committed = (Math.abs(dx) > 60 || (Math.abs(dx) > 20 && velocity > 0.5)) && dirHasTarget;
+      // 작품과 작품 중간 경계선(그 방향 간격의 절반)을 넘었거나, 짧아도 빠르게 휙
+      // 넘겼으면(속도) 커밋 - 그 경계 못 미치면 원래 그림으로 되돌아감
+      const boundary = (dx < 0 ? nextGap : prevGap) / 2;
+      const committed = (Math.abs(dx) > boundary || (Math.abs(dx) > 20 && velocity > 0.5)) && dirHasTarget;
 
       if (committed && dx > 0 && atExhibitionStart) {
         // 이건 새 그림으로 넘어가는 게 아니라 전시 개요 페이지로 돌아가는 것뿐 -
