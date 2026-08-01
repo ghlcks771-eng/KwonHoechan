@@ -1686,19 +1686,12 @@
       return;
     }
     const initialSrc = (thumb && thumb !== src) ? thumb : src;
-    // 숨김(opacity:0)은 호출하는 쪽에서 이미 처리해둠 - 여기서는 내용만 지정하고,
-    // 그릴 준비(디코딩)가 확인되면 reveal()에서 다시 보여줌
+    // 크기는 호출하는 쪽에서 이미 확정해뒀으므로, 여기서는 decode() 대기 없이 바로 보여줌.
+    // (급한 드래그/빠른 스와이프에서는 decode()가 끝나기 전에 커밋 애니메이션이 먼저
+    // 시작될 수 있어서, "숨겼다 보여주기"를 여기 걸면 오히려 늦게 팝업되는 것처럼 보일 수 있음)
+    el.style.opacity = "1";
     el.src = initialSrc;
     el.classList.remove("lb-image-placeholder");
-    const reveal = () => {
-      if (peekLoadTokens[key] !== myToken) return; // 그 사이 새로 스와이프 시작됨 - 무시
-      el.style.opacity = "1";
-    };
-    if (el.decode) {
-      el.decode().then(reveal).catch(reveal);
-    } else {
-      el.onload = reveal;
-    }
     if (thumb && thumb !== src) {
       const fullRes = new Image();
       const swapPeekToFullRes = () => {
@@ -1903,10 +1896,8 @@
           // 진짜로 갈 곳이 없는 경우(전시 경계 등)만 숨김 - 그 항목에 이미지가 없을 뿐인
           // 경우는 자리표시자로 계속 보이게 해서 그 방향 스와이프가 막히지 않도록 함
           if (!hasIndex) { el.style.display = "none"; return; }
-          // 1) 먼저 숨김 (혹시 모를 순서 문제에 안전하게 대비)
-          el.style.opacity = "0";
-          // 2) 크기/위치를 확정 - src보다 반드시 먼저여야 함(안 그러면 크기가 정해지기 전
-          //    잠깐 원본 픽셀 크기 그대로 작게 그려졌다가 커지는 것처럼 보일 수 있음)
+          // 크기/위치를 먼저 확정 - src보다 반드시 먼저여야 함(안 그러면 크기가 정해지기 전
+          // 잠깐 원본 픽셀 크기 그대로 작게 그려졌다가 커지는 것처럼 보일 수 있음)
           const dims = src ? imageDimsCache.get(src) : null;
           const fit = dims ? computeFitSize(dims.w, dims.h) : { w: imgWidth, h: imgHeight };
           el.style.width = `${fit.w}px`;
@@ -1916,7 +1907,7 @@
           el.style.transition = "none";
           el.style.transform = "translateX(0px)";
           el.style.display = "";
-          // 3) 마지막으로 내용을 지정 - 그릴 준비(decode)가 확인되면 이 함수 안에서 다시 보여줌
+          // 내용 지정 - 크기는 이미 확정됐으므로 바로 보여줘도 안전함
           setPeekImageSrc(el, key, src, thumb);
         });
       }
@@ -2087,6 +2078,13 @@
   let lightboxImageLoadToken = 0; // 이 번호가 바뀌면(다른 이미지로 넘어가면) 이전 백그라운드 로딩은 무시됨
 
   function openLightboxRaw({ image, thumb, title, artist, meta, note, links }) {
+    // 이미지 로딩(특히 캐시된 thumb는 거의 순식간에 load 이벤트가 발생함)이 시작되기 전에
+    // "열려있음" 상태부터 먼저 확정해둠 - 순서가 반대면, load 리스너 안의 "라이트박스
+    // 열려있나?" 체크가 아직 안 열린 것으로 보고 건너뛰어서 화면이 계속 투명한 채로 남음
+    lightbox.classList.add("open");
+    document.body.style.overflow = "hidden";
+    document.body.classList.add("lightbox-active");
+
     resetZoom();
     const myLoadToken = ++lightboxImageLoadToken;
     if (image) {
@@ -2153,10 +2151,6 @@
       if (a.dataset.kind === "post" && a.dataset.workId) armPostFocus(a.dataset.workId);
       closeLightboxForNavigation();
     }));
-
-    lightbox.classList.add("open");
-    document.body.style.overflow = "hidden";
-    document.body.classList.add("lightbox-active");
 
     if (!lightboxHistoryPushed) {
       history.pushState({ lightboxOpen: true }, "");
