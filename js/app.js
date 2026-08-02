@@ -1901,8 +1901,8 @@
     // 보이는 문제가 있었음. 이제 next는 화면 오른쪽 끝을, prev는 (어떤 폭의 그림이 오든,
     // 그림이 가질 수 있는 최대 폭까지 감안해서) 화면 왼쪽 끝을 반드시 넘어서도록 계산함
     const maxPossibleImgWidth = window.innerWidth * 0.88; // computeFitSize의 최대 가로폭 기준과 동일
-    nextGap = (window.innerWidth - imgLeft) + 24;
-    prevGap = imgLeft + maxPossibleImgWidth + 24;
+    nextGap = window.innerWidth - imgLeft;
+    prevGap = imgLeft + maxPossibleImgWidth;
 
     if (!(lightboxItems.length > 1 || (lightboxItems[lightboxIndex] && lightboxItems[lightboxIndex].kind === "work"))) return;
 
