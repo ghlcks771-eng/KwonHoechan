@@ -1593,6 +1593,7 @@
 
   lbImage.addEventListener("click", (e) => {
     if (dragMoved) { dragMoved = false; return; }
+    if (touchWasSwipe) { touchWasSwipe = false; return; } // 스와이프 직후 합성된 클릭이면 무시
     if (!fitWidth) return;
 
     if (scale > 1) {
@@ -1778,6 +1779,7 @@
   // 리스너는 이미지 자체가 아니라 lb-image-wrap 전체(라이트박스 전체 영역)에 걸어서
   // 이미지 주변 여백에서 시작해도 동작함 (캡션 영역은 z-index가 더 높아 자연히 보호됨)
   let touchStartX = 0, touchStartY = 0, touchStartTime = 0, touchActive = false, touchSwiping = false;
+  let touchWasSwipe = false; // 스와이프 직후 브라우저가 합성해서 발생시킬 수 있는 click(확대 토글)을 무시하기 위한 표시
   let touchPanStartLeft = 0, touchPanStartTop = 0;
   let pinchStartDist = null, pinchStartScale = 1;
   let pinchMidX = 0, pinchMidY = 0;
@@ -2082,6 +2084,8 @@
 
     if (touchSwiping) {
       touchSwiping = false;
+      touchWasSwipe = true; // 곧이어 브라우저가 합성해서 발생시킬 수 있는 click(확대 토글)을 무시하기 위한 표시
+      setTimeout(() => { touchWasSwipe = false; }, 400); // 합성 클릭이 아예 안 오는 경우를 대비한 안전장치
       const touch = e.changedTouches[0];
       const dx = touch.clientX - touchStartX;
       const elapsed = Math.max(1, Date.now() - touchStartTime);
