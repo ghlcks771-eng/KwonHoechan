@@ -139,6 +139,7 @@
 
   // 작품 목록 그리드로 이동한 뒤, 해당 작품 카드로 스크롤(+옵션으로 자동 라이트박스 오픈)
   let pendingWorkFocus = null;
+  let pendingScrollToTop = false; // "전시 찾아보기" 등 클릭 시, 기억된 스크롤 위치 대신 무조건 맨 위로 이동시키기 위함
 
   // 모바일 갤러리 핀치로 고른 열 개수(1~5) - 페이지를 이동하거나 나갔다 들어와도 기억함
   let savedGalleryColumns = null;
@@ -3632,11 +3633,16 @@
     if (suppressRouteWithMemory) return;
     // 검색 결과 클릭 등으로 이미 특정 위치로 스크롤/강조가 예약돼있으면, 그쪽이 우선이므로
     // 여기서 스크롤을 덮어쓰지 않음(routeInner가 이 예약들을 소비하기 전에 미리 확인해둠)
-    const hasExplicitPending = !!(pendingWorkFocus || pendingPostFocus || pendingBodySearchHighlight || pendingPostTitleHighlight || pendingKeyboardEdgeFocus);
+    const hasExplicitPending = !!(pendingWorkFocus || pendingPostFocus || pendingBodySearchHighlight || pendingPostTitleHighlight || pendingKeyboardEdgeFocus || pendingScrollToTop);
     saveCurrentPageState();
     currentPageHash = location.hash || "#/";
     route();
-    if (!hasExplicitPending) restorePageState();
+    if (pendingScrollToTop) {
+      window.scrollTo(0, 0);
+      pendingScrollToTop = false;
+    } else if (!hasExplicitPending) {
+      restorePageState();
+    }
   }
 
   function routeInner() {
@@ -3852,6 +3858,14 @@
   window.addEventListener("resize", applyMobileTapWidening);
 
   applyStaticI18n();
+  // "전시 찾아보기" 링크(글 상세 페이지 상단, 그 글을 인용한 전시로 이동)를 누르면,
+  // 혹시 그 전시 페이지를 이전에 스크롤해둔 기록이 있어도 그거 무시하고 무조건 맨
+  // 위에서 시작하도록 함 - 글에서 막 넘어온 거라 위쪽(제목 등)부터 보는 게 자연스러움
+  document.addEventListener("click", (e) => {
+    const link = e.target.closest(".post-explore-links a");
+    if (link) pendingScrollToTop = true;
+  });
+
   window.addEventListener("hashchange", routeWithMemory);
   window.addEventListener("DOMContentLoaded", route);
   route();
