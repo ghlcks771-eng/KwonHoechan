@@ -2150,7 +2150,6 @@
         const duration = 220;
         const winner = dir > 0 ? lbImagePeekNext : lbImagePeekPrev;
         const loser = dir > 0 ? lbImagePeekPrev : lbImagePeekNext;
-        const winnerGap = dir > 0 ? nextGap : prevGap;
         const winnerFullSrc = dir > 0 ? nextFullSrc : prevFullSrc;
 
         // winner(peek)는 스와이프하는 동안 이미 로드돼서 화면에 보이고 있던 실제 이미지임 -
@@ -2161,12 +2160,15 @@
           imageDimsCache.set(winnerFullSrc, { w: winner.naturalWidth, h: winner.naturalHeight });
         }
 
-        // 모든 요소(lbImage, 각 peek)에 "같은 하나의 목표 이동값"을 적용함 - winner가
-        // 정확히 가운데(자기 offset만큼 되돌아온 지점)로 오게 되는 값. 다들 원래 서로
-        // 다른 간격(offset)으로 배치돼있었으니, 똑같은 값만큼 같이 밀면 서로의 상대적
-        // 거리(간격)가 그대로 유지된 채 자연스럽게 이동함 - 요소마다 "어디로 가야
-        // 하는지"를 따로 계산할 필요가 없어져서, 방향이 꼬일 여지 자체가 없어짐
-        const uniformTarget = dir * -winnerGap;
+        // winner 자신의 실제 치수(이미 로드된 thumb 기준, 원본과 비율은 동일)로 "이 그림이
+        // 진짜로 있어야 할 화면 중앙 자리"를 계산함 - 예전엔 무조건 "예전 이미지가 있던
+        // 자리"로 수렴하게 계산했는데, 세로가 긴(폭이 좁은) 이미지가 오면 그 자리가 실제
+        // 중앙이 아니라서, 애니메이션이 끝난 뒤 진짜 중앙으로 한 번 더 순간이동하는 것처럼
+        // 보였음. 이제 winner의 진짜 중앙 자리를 직접 목표로 잡아서 그런 문제가 없음
+        const winnerFit = winner.naturalWidth ? computeFitSize(winner.naturalWidth, winner.naturalHeight) : { w: imgWidth, h: imgHeight };
+        const winnerCorrectX = (window.innerWidth - winnerFit.w) / 2;
+        const winnerOwnOffset = dir > 0 ? nextGap : -prevGap; // winner가 처음 배치될 때 쓴 offset(부호 포함)
+        const uniformTarget = winnerCorrectX - (imgLeft + winnerOwnOffset);
         [lbImage, lbImagePeekNext, lbImagePeekPrev, lbImagePeekNext2, lbImagePeekPrev2].forEach((el) => {
           if (el !== lbImage && el.style.display === "none") return;
           el.style.transition = `transform ${duration}ms ease`;
