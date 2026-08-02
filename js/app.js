@@ -2308,8 +2308,22 @@
 
     if (movedToTop.length) {
       const remaining = exhibitionLinks.slice(exIdx).concat(otherLinks.slice(otherIdx));
+      lbLinksTop.style.maxWidth = ""; // 기본(넓은) 폭으로 - 이제 좁히는 건 전체가 아니라 float 요소 하나로만 처리함
       lbLinksTop.innerHTML = movedToTop.map(linkHtml).join("");
       lbLinks.innerHTML = remaining.map(linkHtml).join("");
+      // 닫기 버튼의 실제 위치를 재서, 딱 그 자리만큼만 투명하게 float시켜 놓음 - 그
+      // 옆(닫기 버튼과 같은 높이)에 있는 글자 줄만 좁게 줄바꿈되고, 그 아래(버튼보다
+      // 낮은 위치)의 줄부터는 다시 원래 너비 전체를 씀. 버튼의 클릭 범위 자체는 안 건드림
+      const closeRect = lbClose.getBoundingClientRect();
+      const topRect = lbLinksTop.getBoundingClientRect();
+      const gap = 16;
+      const spacerWidth = Math.max(0, topRect.right - (closeRect.left - gap));
+      const spacerHeight = Math.max(0, (closeRect.bottom + gap) - topRect.top);
+      if (spacerWidth > 0 && spacerHeight > 0) {
+        lbLinksTop.innerHTML = `<div class="lb-top-avoid-spacer" style="width:${spacerWidth}px;height:${spacerHeight}px;"></div>` + lbLinksTop.innerHTML;
+      }
+    } else {
+      lbLinksTop.style.maxWidth = "";
     }
     attachClicks();
   }

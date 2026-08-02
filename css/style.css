@@ -1203,24 +1203,27 @@ body.lightbox-active #app { user-select: none; }
 
 /* 좁은 화면(삼선 기준)에서, 작품이 참여한 전시가 많아 목록이 너무 길어지면(3개 초과)
    바닥에서 위로 다 쌓이는 대신, 오래된 전시들은 천장에서 아래로 내려오게 나눠서 보여줌.
-   순서는 그대로(꼭대기=오래된 전시, 아래=최근 전시) 유지됨 - 데스크톱에선 항상 숨김 */
+   순서는 그대로(꼭대기=오래된 전시, 아래=최근 전시) 유지됨 - 데스크톱에선 항상 숨김.
+   display:block(flex 아님)이어야 아래 float 기법(닫기 버튼 영역만 피해서 줄바꿈)이 작동함 */
 .lb-links-top {
   display: none;
   position: fixed;
   left: 40px;
   top: 24px;
   z-index: 10;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0;
   max-width: min(420px, calc(100vw - 80px));
   color: var(--lb-text);
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85), 0 1px 12px rgba(0, 0, 0, 0.5);
 }
 .lb-links-top:empty { display: none !important; }
 @media (max-width: 650px) {
-  .lb-links-top:not(:empty) { display: flex; left: 16px; max-width: calc(100vw - 32px); }
+  .lb-links-top:not(:empty) { display: block; left: 16px; max-width: calc(100vw - 32px); }
 }
+.lb-links-top .lb-explore-link { display: block; }
+/* 닫기 버튼이 있는 딱 그 자리만큼만 투명하게 띄워서(float), 글자가 그 옆에서만
+   좁게 줄바꿈되고 그 아래(버튼보다 낮은 위치)부터는 다시 원래 너비로 꽉 채워짐 -
+   크기(width/height)는 JS가 닫기 버튼의 실제 위치를 재서 그때그때 넣어줌 */
+.lb-top-avoid-spacer { float: right; }
 
 .lb-explore-link { pointer-events: auto; } /* 실제 글자 링크만 클릭/터치 가능 */
 
