@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://ghlcks771-eng.github.io/KwonHoechan/sitemap.xml
