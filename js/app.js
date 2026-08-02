@@ -59,7 +59,7 @@
     const w = findFirstWork(node);
     const thumbSrc = w && (w.thumb || w.image);
     const inner = thumbSrc
-      ? `<img src="${thumbSrc}" alt="" loading="lazy" />`
+      ? `<img src="${thumbSrc}" alt="${title}" loading="lazy" />`
       : `<span class="placeholder-mark">${ui("placeholderNoImage")}</span>`;
     const style = thumbSrc ? "" : placeholderStyle(0);
     return `
@@ -1039,7 +1039,7 @@
     const w = WORKS[r.id];
     const thumbSrc = w && (w.thumb || w.image);
     const thumbHtml = thumbSrc
-      ? `<span class="search-thumb"><img src="${thumbSrc}" alt="" loading="lazy" /></span>`
+      ? `<span class="search-thumb"><img src="${thumbSrc}" alt="${escapeHtml(r.title)}" loading="lazy" /></span>`
       : `<span class="search-thumb search-thumb-empty"></span>`;
     return `
       <li class="search-item search-item-work">
