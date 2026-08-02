@@ -139,7 +139,6 @@
 
   // 작품 목록 그리드로 이동한 뒤, 해당 작품 카드로 스크롤(+옵션으로 자동 라이트박스 오픈)
   let pendingWorkFocus = null;
-  let pendingScrollToTop = false; // "전시 찾아보기" 등 클릭 시, 기억된 스크롤 위치 대신 무조건 맨 위로 이동시키기 위함
 
   // 모바일 갤러리 핀치로 고른 열 개수(1~5) - 페이지를 이동하거나 나갔다 들어와도 기억함
   let savedGalleryColumns = null;
@@ -1458,6 +1457,7 @@
   });
   const lbNote = document.getElementById("lb-note");
   const lbLinks = document.getElementById("lb-links");
+  const lbLinksTop = document.getElementById("lb-links-top");
   const lbClose = document.getElementById("lb-close");
 
   // 이미지 "프레임" 상태: fitWidth/fitHeight = 확대 안 된 기본 크기, scale = 배율,
@@ -2350,14 +2350,30 @@
     lbNote.innerHTML = note ? nlToBr(renderInline(note)) : "";
     lbNote.style.display = note ? "" : "none";
 
-    lbLinks.innerHTML = (links || [])
-      .map((l) => `<a href="${l.href}" class="lb-explore-link" data-kind="${l.kind || ""}" data-work-id="${l.workId || ""}">${l.label}</a>`)
-      .join("");
-    lbLinks.querySelectorAll("a").forEach((a) => a.addEventListener("click", () => {
-      if (a.dataset.kind === "work" && a.dataset.workId) armWorkFocus(a.dataset.workId, false);
-      if (a.dataset.kind === "post" && a.dataset.workId) armPostFocus(a.dataset.workId);
-      closeLightboxForNavigation();
-    }));
+    const linkHtml = (l) => `<a href="${l.href}" class="lb-explore-link" data-kind="${l.kind || ""}" data-work-id="${l.workId || ""}">${l.label}</a>`;
+    const allLinks = links || [];
+    // "전시 찾아보기" 링크(kind 없음)만 대상 - "연작/글 찾아보기"(kind 있음)는 그대로 바닥에 둠
+    const exhibitionLinks = allLinks.filter((l) => !l.kind);
+    const otherLinks = allLinks.filter((l) => l.kind);
+    // 좁은 화면(삼선 기준)에서 전시 참여가 많으면(3개 초과), 바닥엔 최근 2개만 남기고
+    // 나머지(오래된 것들)는 천장 쪽에서 내려오는 별도 목록으로 보냄 - 순서는 그대로
+    // (꼭대기=오래된 전시, 아래=최근 전시) 유지됨
+    if (window.innerWidth <= 650 && exhibitionLinks.length > 3) {
+      const topPart = exhibitionLinks.slice(0, -2);
+      const bottomPart = exhibitionLinks.slice(-2);
+      lbLinksTop.innerHTML = topPart.map(linkHtml).join("");
+      lbLinks.innerHTML = bottomPart.map(linkHtml).join("") + otherLinks.map(linkHtml).join("");
+    } else {
+      lbLinksTop.innerHTML = "";
+      lbLinks.innerHTML = allLinks.map(linkHtml).join("");
+    }
+    [lbLinks, lbLinksTop].forEach((container) => {
+      container.querySelectorAll("a").forEach((a) => a.addEventListener("click", () => {
+        if (a.dataset.kind === "work" && a.dataset.workId) armWorkFocus(a.dataset.workId, false);
+        if (a.dataset.kind === "post" && a.dataset.workId) armPostFocus(a.dataset.workId);
+        closeLightboxForNavigation();
+      }));
+    });
 
     if (!lightboxHistoryPushed) {
       history.pushState({ lightboxOpen: true }, "");
@@ -3633,16 +3649,11 @@
     if (suppressRouteWithMemory) return;
     // 검색 결과 클릭 등으로 이미 특정 위치로 스크롤/강조가 예약돼있으면, 그쪽이 우선이므로
     // 여기서 스크롤을 덮어쓰지 않음(routeInner가 이 예약들을 소비하기 전에 미리 확인해둠)
-    const hasExplicitPending = !!(pendingWorkFocus || pendingPostFocus || pendingBodySearchHighlight || pendingPostTitleHighlight || pendingKeyboardEdgeFocus || pendingScrollToTop);
+    const hasExplicitPending = !!(pendingWorkFocus || pendingPostFocus || pendingBodySearchHighlight || pendingPostTitleHighlight || pendingKeyboardEdgeFocus);
     saveCurrentPageState();
     currentPageHash = location.hash || "#/";
     route();
-    if (pendingScrollToTop) {
-      window.scrollTo(0, 0);
-      pendingScrollToTop = false;
-    } else if (!hasExplicitPending) {
-      restorePageState();
-    }
+    if (!hasExplicitPending) restorePageState();
   }
 
   function routeInner() {
@@ -3859,11 +3870,12 @@
 
   applyStaticI18n();
   // "전시 찾아보기" 링크(글 상세 페이지 상단, 그 글을 인용한 전시로 이동)를 누르면,
-  // 혹시 그 전시 페이지를 이전에 스크롤해둔 기록이 있어도 그거 무시하고 무조건 맨
-  // 위에서 시작하도록 함 - 글에서 막 넘어온 거라 위쪽(제목 등)부터 보는 게 자연스러움
+  // 그 전시 페이지의 "기억된 스크롤 위치" 자체를 미리 맨 위(0)로 덮어써둠 - 이러면
+  // 그 뒤에 실행되는 정상적인 스크롤 복원 로직이 그대로 실행돼도 자연스럽게 맨
+  // 위에서 시작하게 됨(별도로 그 로직을 우회/경합할 필요가 없음)
   document.addEventListener("click", (e) => {
     const link = e.target.closest(".post-explore-links a");
-    if (link) pendingScrollToTop = true;
+    if (link) pageState.set(link.getAttribute("href"), { scrollY: 0, focusId: null });
   });
 
   window.addEventListener("hashchange", routeWithMemory);

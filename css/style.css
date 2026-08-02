@@ -1201,6 +1201,27 @@ body.lightbox-active #app { user-select: none; }
   pointer-events: none; /* 컨테이너 자체는 터치를 통과시킴(아래 이미지가 반응하도록) */
 }
 
+/* 좁은 화면(삼선 기준)에서, 작품이 참여한 전시가 많아 목록이 너무 길어지면(3개 초과)
+   바닥에서 위로 다 쌓이는 대신, 오래된 전시들은 천장에서 아래로 내려오게 나눠서 보여줌.
+   순서는 그대로(꼭대기=오래된 전시, 아래=최근 전시) 유지됨 - 데스크톱에선 항상 숨김 */
+.lb-links-top {
+  display: none;
+  position: fixed;
+  left: 40px;
+  top: 24px;
+  z-index: 10;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  max-width: min(420px, calc(100vw - 80px));
+  color: var(--lb-text);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85), 0 1px 12px rgba(0, 0, 0, 0.5);
+}
+.lb-links-top:empty { display: none !important; }
+@media (max-width: 650px) {
+  .lb-links-top:not(:empty) { display: flex; left: 16px; max-width: calc(100vw - 32px); }
+}
+
 .lb-explore-link { pointer-events: auto; } /* 실제 글자 링크만 클릭/터치 가능 */
 
 .lb-explore-link {
@@ -1217,6 +1238,18 @@ body.lightbox-active #app { user-select: none; }
 
 .lb-explore-link:hover { color: var(--sanguine); }
 .lb-explore-link:focus-visible { outline: none; color: var(--sanguine); }
+
+/* 왼쪽 여백(16px)과 대칭이 되도록, 너비 계산도 32px(16px*2) 기준으로 맞춤 - 그대로
+   두면 데스크톱 여백(80px=40px*2) 기준이 남아있어서 오른쪽 여백만 넓어 보임.
+   (앞의 규칙들보다 나중에 나와야 우선 적용되므로 이 위치에 둠) */
+@media (max-width: 650px) {
+  .lb-caption-line,
+  .lb-info-wide .lb-caption-line,
+  .lb-note,
+  .lb-links {
+    max-width: calc(100vw - 32px);
+  }
+}
 
 .lb-close {
   position: absolute;
