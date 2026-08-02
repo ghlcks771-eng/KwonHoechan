@@ -320,9 +320,6 @@ img { max-width: 100%; display: block; }
   max-width: 100%;
 }
 
-.cv-item {
-}
-
 .cv-item.cv-year-break { margin-top: 8px; }
 
 
@@ -391,8 +388,6 @@ img { max-width: 100%; display: block; }
   padding: 0;
   max-width: 640px;
 }
-
-.cat-item { }
 
 .cat-item a {
   display: inline-flex;
@@ -665,8 +660,6 @@ body.gallery-page { touch-action: pan-y; }
    ============================================================ */
 .text-list { list-style: none; margin: 0; padding: 0; }
 
-.text-item { }
-
 .text-item a {
   display: inline-flex;
   flex-direction: column;
@@ -727,8 +720,6 @@ body.gallery-page { touch-action: pan-y; }
   font-family: var(--font-mono);
   font-size: 15px;
 }
-
-.contact-list li { }
 
 .contact-list a {
   display: inline-block;
@@ -886,7 +877,6 @@ body.keyboard-nav-active .search-item a {
    서문/평문 참조 카드 (전시 상세 페이지)
    ============================================================ */
 .ref-list { list-style: none; margin: 0 0 8px; padding: 0; max-width: 480px; }
-.ref-item { }
 
 .ref-item a {
   display: inline-flex;
@@ -959,7 +949,6 @@ body.keyboard-nav-active .search-item a {
 }
 
 .search-list { list-style: none; margin: 0 0 6px; padding: 0; }
-.search-item { }
 
 .search-item a {
   display: block;

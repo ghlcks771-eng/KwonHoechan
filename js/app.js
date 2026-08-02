@@ -1791,6 +1791,12 @@
   function setCaptionHidden(hidden) {
     captionHidden = hidden;
     lbInfo.classList.toggle("lb-info-hidden", captionHidden);
+    // 천장 쪽 전시 목록(.lb-links-top)은 .lb-info 바깥의 별도 요소라 같이 안 숨겨지고
+    // 있었음 - 다만 여기는 pointer-events:none을 쓰면 안 됨: 그 영역을 탭했을 때 터치가
+    // 그대로 통과해서 바로 아래 배경(탭하면 라이트박스가 닫히는 영역)에 닿아버릴 수 있음.
+    // 그래서 투명하게만(opacity) 만들고, 터치 자체는 이 영역이 계속 흡수하게 둔 채,
+    // 링크가 실제로 눌려도 아무 반응 없도록 클릭 핸들러 쪽에서 따로 막음(아래 참고)
+    lbLinksTop.style.opacity = captionHidden ? "0" : "";
   }
   let nextGap = 0, prevGap = 0;
   let nextFullSrc = "", prevFullSrc = ""; // 커밋 시점에 캐시를 미리 채우기 위해 원본(고화질) 주소를 기억해둠
@@ -2251,6 +2257,7 @@
     const attachClicks = () => {
       [lbLinks, lbLinksTop].forEach((container) => {
         container.querySelectorAll("a").forEach((a) => a.addEventListener("click", () => {
+          if (captionHidden) return; // 숨겨진 상태에서는 눌려도 아무 반응 없음(터치 자체는 이 영역이 흡수함)
           if (a.dataset.kind === "work" && a.dataset.workId) armWorkFocus(a.dataset.workId, false);
           if (a.dataset.kind === "post" && a.dataset.workId) armPostFocus(a.dataset.workId);
           closeLightboxForNavigation();
