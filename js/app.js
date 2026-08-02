@@ -2317,7 +2317,7 @@
       const closeRect = lbClose.getBoundingClientRect();
       const topRect = lbLinksTop.getBoundingClientRect();
       const gapX = 16; // 왼쪽(글자가 버튼과 겹치지 않게) - 이 정도 여유는 필요함
-      const gapY = 4;  // 아래쪽(버튼보다 낮아지면 바로 원래 너비로 채워도 됨) - 더 타이트하게
+      const gapY = 0;  // 아래쪽(버튼보다 낮아지면 바로 원래 너비로 채워도 됨) - 여백 없앰
       const spacerWidth = Math.max(0, topRect.right - (closeRect.left - gapX));
       const spacerHeight = Math.max(0, (closeRect.bottom + gapY) - topRect.top);
       if (spacerWidth > 0 && spacerHeight > 0) {
