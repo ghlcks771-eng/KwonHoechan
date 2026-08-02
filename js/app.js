@@ -2316,9 +2316,10 @@
       // 낮은 위치)의 줄부터는 다시 원래 너비 전체를 씀. 버튼의 클릭 범위 자체는 안 건드림
       const closeRect = lbClose.getBoundingClientRect();
       const topRect = lbLinksTop.getBoundingClientRect();
-      const gap = 16;
-      const spacerWidth = Math.max(0, topRect.right - (closeRect.left - gap));
-      const spacerHeight = Math.max(0, (closeRect.bottom + gap) - topRect.top);
+      const gapX = 16; // 왼쪽(글자가 버튼과 겹치지 않게) - 이 정도 여유는 필요함
+      const gapY = 4;  // 아래쪽(버튼보다 낮아지면 바로 원래 너비로 채워도 됨) - 더 타이트하게
+      const spacerWidth = Math.max(0, topRect.right - (closeRect.left - gapX));
+      const spacerHeight = Math.max(0, (closeRect.bottom + gapY) - topRect.top);
       if (spacerWidth > 0 && spacerHeight > 0) {
         lbLinksTop.innerHTML = `<div class="lb-top-avoid-spacer" style="width:${spacerWidth}px;height:${spacerHeight}px;"></div>` + lbLinksTop.innerHTML;
       }
