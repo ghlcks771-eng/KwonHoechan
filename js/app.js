@@ -2239,6 +2239,88 @@
   let lightboxImageLoadToken = 0; // 이 번호가 바뀌면(다른 이미지로 넘어가면) 이전 백그라운드 로딩은 무시됨
   let pendingGrabOffset = 0; // 스와이프 애니메이션 도중 다시 손을 댔을 때, 그 순간 위치에서 이어받기 위한 값
 
+  let currentLightboxLinks = []; // 창 크기가 바뀔 때 다시 렌더링할 수 있도록 마지막으로 넘겨받은 링크 목록을 기억해둠
+
+  function renderLightboxLinks(links) {
+    currentLightboxLinks = links;
+    const linkHtml = (l) => `<a href="${l.href}" class="lb-explore-link" data-kind="${l.kind || ""}" data-work-id="${l.workId || ""}">${l.label}</a>`;
+    // "전시 찾아보기" 링크(kind 없음)만 위로 보낼 후보 - "연작/글 찾아보기"(kind 있음)는 그다음 우선순위
+    const exhibitionLinks = links.filter((l) => !l.kind);
+    const otherLinks = links.filter((l) => l.kind);
+
+    const attachClicks = () => {
+      [lbLinks, lbLinksTop].forEach((container) => {
+        container.querySelectorAll("a").forEach((a) => a.addEventListener("click", () => {
+          if (a.dataset.kind === "work" && a.dataset.workId) armWorkFocus(a.dataset.workId, false);
+          if (a.dataset.kind === "post" && a.dataset.workId) armPostFocus(a.dataset.workId);
+          closeLightboxForNavigation();
+        }));
+      });
+    };
+
+    if (window.innerWidth > 650) {
+      // 데스크톱에서는 항상 다 바닥 하나에
+      lbLinksTop.innerHTML = "";
+      lbLinks.innerHTML = links.map(linkHtml).join("");
+      attachClicks();
+      return;
+    }
+
+    // 좁은 화면(삼선 기준) - 일단 전부 바닥에 렌더링해서 실제 줄 수(긴 이름이면 2줄일
+    // 수도 있음)를 측정한 다음, 캡션/노트까지 다 합쳐서 몇 줄인지 계산함. 스와이프
+    // 도중 손가락이 실수로 닿을 수 있는 영역이 너무 커지는 걸 막는 게 목적이라,
+    // 캡션/노트는 항상 짧고 위치도 안 바뀌니 옮기지 않고, 늘어나는 목록만 옮김
+    lbLinksTop.innerHTML = "";
+    lbLinks.innerHTML = links.map(linkHtml).join("");
+
+    const countLines = (el) => {
+      if (!el || !el.textContent || !el.textContent.trim() || el.style.display === "none") return 0;
+      const lh = parseFloat(getComputedStyle(el).lineHeight) || 18;
+      return Math.max(1, Math.round(el.getBoundingClientRect().height / lh));
+    };
+
+    const captionLines = countLines(lbCaptionLine);
+    const noteLines = countLines(lbNote);
+    const anchorEls = Array.from(lbLinks.querySelectorAll("a"));
+    // 렌더링한 순서(전시 먼저, 글 찾아보기 다음)와 그대로 대응됨
+    const exLineCounts = anchorEls.slice(0, exhibitionLinks.length).map(countLines);
+    const otherLineCounts = anchorEls.slice(exhibitionLinks.length).map(countLines);
+
+    let total = captionLines + noteLines
+      + exLineCounts.reduce((a, b) => a + b, 0)
+      + otherLineCounts.reduce((a, b) => a + b, 0);
+
+    const movedToTop = [];
+    // 5줄(총합) 넘으면, 전시찾아보기를 오래된 것부터 통째로(항목 단위로, 줄 중간에서
+    // 안 자르고) 위로 보냄 - 다 보내도 부족하면 글찾아보기도 오래된 순으로 이어서 보냄
+    let exIdx = 0;
+    while (total > 5 && exIdx < exhibitionLinks.length) {
+      total -= exLineCounts[exIdx];
+      movedToTop.push(exhibitionLinks[exIdx]);
+      exIdx++;
+    }
+    let otherIdx = 0;
+    while (total > 5 && otherIdx < otherLinks.length) {
+      total -= otherLineCounts[otherIdx];
+      movedToTop.push(otherLinks[otherIdx]);
+      otherIdx++;
+    }
+
+    if (movedToTop.length) {
+      const remaining = exhibitionLinks.slice(exIdx).concat(otherLinks.slice(otherIdx));
+      lbLinksTop.innerHTML = movedToTop.map(linkHtml).join("");
+      lbLinks.innerHTML = remaining.map(linkHtml).join("");
+    }
+    attachClicks();
+  }
+
+  // 라이트박스가 열려있는 동안 창 크기가 바뀌면(회전, 창 크기 조절 등) 목록을 다시 나눔 -
+  // 안 그러면 좁은 화면일 때 천장으로 보냈던 항목들이, 넓은 화면으로 바뀌어도 그대로
+  // 남아있다가 CSS가 숨겨버려서(650px 넘으면 안 보이게 돼있음) 그냥 사라져버림
+  window.addEventListener("resize", () => {
+    if (lightbox.classList.contains("open")) renderLightboxLinks(currentLightboxLinks);
+  });
+
   function openLightboxRaw({ image, thumb, title, artist, meta, note, links }) {
     // 이미지 로딩(특히 캐시된 thumb는 거의 순식간에 load 이벤트가 발생함)이 시작되기 전에
     // "열려있음" 상태부터 먼저 확정해둠 - 순서가 반대면, load 리스너 안의 "라이트박스
@@ -2350,30 +2432,7 @@
     lbNote.innerHTML = note ? nlToBr(renderInline(note)) : "";
     lbNote.style.display = note ? "" : "none";
 
-    const linkHtml = (l) => `<a href="${l.href}" class="lb-explore-link" data-kind="${l.kind || ""}" data-work-id="${l.workId || ""}">${l.label}</a>`;
-    const allLinks = links || [];
-    // "전시 찾아보기" 링크(kind 없음)만 대상 - "연작/글 찾아보기"(kind 있음)는 그대로 바닥에 둠
-    const exhibitionLinks = allLinks.filter((l) => !l.kind);
-    const otherLinks = allLinks.filter((l) => l.kind);
-    // 좁은 화면(삼선 기준)에서 전시 참여가 많으면(3개 초과), 바닥엔 최근 2개만 남기고
-    // 나머지(오래된 것들)는 천장 쪽에서 내려오는 별도 목록으로 보냄 - 순서는 그대로
-    // (꼭대기=오래된 전시, 아래=최근 전시) 유지됨
-    if (window.innerWidth <= 650 && exhibitionLinks.length > 3) {
-      const topPart = exhibitionLinks.slice(0, -2);
-      const bottomPart = exhibitionLinks.slice(-2);
-      lbLinksTop.innerHTML = topPart.map(linkHtml).join("");
-      lbLinks.innerHTML = bottomPart.map(linkHtml).join("") + otherLinks.map(linkHtml).join("");
-    } else {
-      lbLinksTop.innerHTML = "";
-      lbLinks.innerHTML = allLinks.map(linkHtml).join("");
-    }
-    [lbLinks, lbLinksTop].forEach((container) => {
-      container.querySelectorAll("a").forEach((a) => a.addEventListener("click", () => {
-        if (a.dataset.kind === "work" && a.dataset.workId) armWorkFocus(a.dataset.workId, false);
-        if (a.dataset.kind === "post" && a.dataset.workId) armPostFocus(a.dataset.workId);
-        closeLightboxForNavigation();
-      }));
-    });
+    renderLightboxLinks(links || []);
 
     if (!lightboxHistoryPushed) {
       history.pushState({ lightboxOpen: true }, "");
