@@ -3977,6 +3977,24 @@
     if (link) pageState.set(link.getAttribute("href"), { scrollY: 0, focusId: null });
   });
 
+  // 갤러리/카드형 썸네일(loading="lazy") 이미지가 완전히 다 불러와진 뒤에만 서서히
+  // 나타나도록 함 - load 이벤트는 버블링이 안 되므로 캡처 단계에서 잡아야 함
+  document.addEventListener("load", (e) => {
+    if (e.target.tagName === "IMG" && e.target.hasAttribute("loading")) {
+      e.target.classList.add("img-ready");
+    }
+  }, true);
+  // 이미 브라우저 캐시에 있어서 load 이벤트가 우리가 감지하기도 전에 이미 끝나버린
+  // 경우까지 보정함 - 화면에 새로 추가되는 이미지들을 계속 감시하다가, 이미 완료된
+  // 상태(complete)면 즉시 표시 클래스를 붙여줌
+  function markAlreadyLoadedThumbs(root) {
+    (root || document).querySelectorAll('img[loading="lazy"]:not(.img-ready)').forEach((img) => {
+      if (img.complete && img.naturalWidth) img.classList.add("img-ready");
+    });
+  }
+  new MutationObserver(() => markAlreadyLoadedThumbs(app)).observe(app, { childList: true, subtree: true });
+  markAlreadyLoadedThumbs();
+
   window.addEventListener("hashchange", routeWithMemory);
   window.addEventListener("DOMContentLoaded", route);
   route();

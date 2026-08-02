@@ -110,6 +110,7 @@ img { max-width: 100%; display: block; }
 .wrap.narrow { max-width: 720px; }
 
 @media (max-width: 650px) {
+  .wrap { padding: 0 16px; }
   .wrap.narrow { padding: 0 16px; }
 }
 
@@ -1572,4 +1573,14 @@ kbd {
   .search-panel, .shortcuts-inner {
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
   }
+}
+
+/* 갤러리/카드형 썸네일 이미지(loading="lazy" 쓰는 것들) - 로딩 중간 상태(덜 그려진
+   모습)가 그대로 보이면 지저분해 보이므로, 완전히 다 불러와진 뒤에만 서서히 나타나게 함 */
+img[loading="lazy"] {
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+img[loading="lazy"].img-ready {
+  opacity: 1;
 }
