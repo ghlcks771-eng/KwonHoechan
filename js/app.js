@@ -1895,8 +1895,14 @@
   // 스와이프가 처음 시작될 때뿐 아니라, 애니메이션 도중에 다시 잡아서 그 자리에서
   // 이어서 드래그하게 될 때도 새 "현재 그림" 기준으로 다시 준비해야 하므로 함수로 뺌
   function setupSwipePeeks() {
-    nextGap = imgWidth + 24;
-    prevGap = imgWidth + 24;
+    // 현재 그림의 폭이 아니라 화면 경계 자체를 기준으로 간격을 계산함 - 예전엔 "현재
+    // 그림 폭 + 24"였는데, 세로가 긴(그래서 폭이 좁은) 그림일 때는 이 정도 간격으로는
+    // 화면 밖까지 안 밀려나서, 스와이프하지도 않았는데 옆 그림이 화면 안에 살짝 걸쳐
+    // 보이는 문제가 있었음. 이제 next는 화면 오른쪽 끝을, prev는 (어떤 폭의 그림이 오든,
+    // 그림이 가질 수 있는 최대 폭까지 감안해서) 화면 왼쪽 끝을 반드시 넘어서도록 계산함
+    const maxPossibleImgWidth = window.innerWidth * 0.88; // computeFitSize의 최대 가로폭 기준과 동일
+    nextGap = (window.innerWidth - imgLeft) + 24;
+    prevGap = imgLeft + maxPossibleImgWidth + 24;
 
     if (!(lightboxItems.length > 1 || (lightboxItems[lightboxIndex] && lightboxItems[lightboxIndex].kind === "work"))) return;
 
