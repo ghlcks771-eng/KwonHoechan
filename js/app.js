@@ -1683,6 +1683,12 @@
       return;
     }
     const initialSrc = (thumb && thumb !== src) ? thumb : src;
+    // 새 이미지를 지정하기 직전에 무조건 한 번 비워둠(src 제거) - 안 그러면 새 이미지가
+    // 다 로딩되기 전까지 브라우저가 "이전에 떠있던 이미지"를 그대로 붙잡고 계속 보여줌
+    // (특히 조각 등 서브이미지처럼 thumb이 따로 없어서 원본을 바로 불러와야 하는 경우,
+    // 로딩이 오래 걸려서 이 문제가 두드러짐) - 대신 로딩되는 동안 잠깐 비어 보이는 게
+    // "엉뚱한 이전 이미지가 계속 보이는 것"보다 나음
+    el.removeAttribute("src");
     el.classList.remove("lb-image-placeholder");
 
     if (dimsKnown) {
@@ -2387,6 +2393,10 @@
       lbImage.alt = title || "";
       lbImage.style.display = "";
       lbImage.classList.remove("lb-image-placeholder");
+      // 새 이미지를 지정하기 직전에 무조건 한 번 비워둠(src 제거) - 안 그러면 로딩되는
+      // 동안 이전 이미지가 그대로 붙잡혀 보임(조각 등 서브이미지처럼 thumb이 없어서
+      // 원본을 바로 불러와야 하는 경우 특히 두드러짐)
+      lbImage.removeAttribute("src");
 
       // 옆 그림으로 넘어갈 걸 대비해 미리 치수를 캐싱해두는 로직(preloadNeighborDims)이나,
       // 스와이프 커밋 시점에 미리 심어두는 캐시가 있어서, 대부분은 이미 캐시에 치수가 있음

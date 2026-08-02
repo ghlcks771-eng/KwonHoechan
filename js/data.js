@@ -524,7 +524,8 @@ ab3: {
       { thumb: "thumb/!ad4-2.jpg",image: "images/ad4-2.jpg" },
       { thumb: "thumb/!ad4-3.jpg",image: "images/ad4-3.jpg" },
       { thumb: "thumb/!ad4-4.jpg",image: "images/ad4-4.jpg" },
-      { thumb: "thumb/!ad4-5.jpg",image: "thumb/ad4-5.jpg" }
+      { thumb: "thumb/!ad4-5.jpg",image: "thumb/ad4-5.jpg" },
+      { thumb: "thumb/!ad4-5.jpg",image: "thumb/ad4-6.jpg" }
       ],
     year: "2025",
     medium: { ko: "천 접착제 코팅, 폴리에스터 실로 꿰맨 캔버스 위에 아크릴릭, 콩테", en: "acrylic and conte on canvas sewn with polyester thread and coated with textile adhesive" },
