@@ -1371,7 +1371,7 @@ const UI = {
     footer: "© 2026 Kwon Hoechan. All works reserved.",
 
     cvLabel: "CV",
-    cvIntro: "전시명을 클릭하시면 관련 전경과 자료를 확인하실 수 있습니다.",
+    cvIntro: "전시명을 클릭하시면 관련 자료를 확인하실 수 있습니다.",
     cvSolo: "개인전",
     cvGroup: "그룹전",
     cvCritic: "비평",
