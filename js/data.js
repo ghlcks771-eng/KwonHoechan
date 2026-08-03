@@ -14,8 +14,8 @@ const PROFILE = {
   name: { ko: "권회찬", en: "Kwon Hoechan" },
   birth: { ko: "1995년 11월 9일생", en: "Born Nobember 9, 1995" },
   education: [
-    { ko: "2024 서울과학기술대학교 일반대학원, 조형예술과 수료, 서울", en: "2024 Coursework Completed in Fine Arts, Graduate School of Seoul National University of Science and Technology, Seoul" },
-    { ko: "2022 서울과학기술대학교 조형대학, 조형예술학과 졸업, 서울", en: "2022 Bachelor of Fine Arts in Fine Arts from Seoul National University of Science and Technology, Seoul" }
+    { ko: "2024 서울과학기술대학교 일반대학원 조형예술과 수료, 서울", en: "2024 Coursework Completed in Fine Arts, Graduate School, Seoul National University of Science and Technology, Seoul" },
+    { ko: "2022 서울과학기술대학교 조형대학 조형예술학과 졸업, 서울", en: "2022 Bachelor of Fine Arts (BFA), Seoul National University of Science and Technology, Seoul" }
   ]
 };
 
