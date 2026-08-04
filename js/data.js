@@ -1304,8 +1304,9 @@ const EXHIBITIONS = [
     essayPostIds: ["zp1"],
     criticPostIds: ["zp1-1"],
     installationImages: [
-      { thumb: "thumb/!zp1-0.jpg", image: "images/zp1-0.jpg", caption: { ko: "포스터", en: "Poster" }, note: { ko: "디자인: 주민희", en: "Design: Ju Minhee" } },
+      { thumb: "thumb/!zp1-0.jpg", image: "images/zp1-0.jpg", caption: { ko: "가족의 물건 포스터", en: "Family Objects Poster" }, note: { ko: "디자인: 이립", en: "Lee Rip" } },
       { thumb: "thumb/!zp1-01.jpg", image: "images/zp1-01.jpg", caption: { ko: "워크숍 과정", en: "In the workshop" }, note: { ko: "사진 촬영: 최태훈", en: "Photo: Choi Taehoon" } },
+      { thumb: "thumb/!zp1-02.jpg", image: "images/zp1-02.jpg", caption: { ko: "광물채집 포스터", en: "Gwangmul Chaejip Poster" }, note: { ko: "디자인: 주민희", en: "Design: Ju Minhee" } },
       { thumb: "thumb/!zp1-1.jpg", image: "images/zp1-1.jpg", caption: { ko: "전시 전경 1", en: "Installation view 1" }, note: { ko: "사진 촬영: 김진솔", en: "Photo: Kim Jinsol" } },
       { thumb: "thumb/!zp1-2.jpg", image: "images/zp1-2.jpg", caption: { ko: "전시 전경 2", en: "Installation view 2" }, note: { ko: "사진 촬영: 김진솔", en: "Photo: Kim Jinsol" } },
       { thumb: "thumb/!zp1-3.jpg", image: "images/zp1-3.jpg", caption: { ko: "전시 전경 3", en: "Installation view 3" }, note: { ko: "사진 촬영: 김진솔", en: "Photo: Kim Jinsol" } },
