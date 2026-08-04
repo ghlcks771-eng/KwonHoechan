@@ -1158,7 +1158,7 @@ const EXHIBITIONS = [
     title: { ko: "견고한 공중", en: "Solid Air" },
     year: "2023",
     venue: { ko: "안팎 스페이스", en: "Annpaak space" },
-    city: { ko: "지역", en: "Seoul" },
+    city: { ko: "서울", en: "Seoul" },
     essayPostIds: ["zg6"],
     criticPostIds: [],
     installationImages: [
