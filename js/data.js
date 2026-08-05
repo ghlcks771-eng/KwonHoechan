@@ -692,9 +692,10 @@ const WORK_CATEGORIES = [
       { id: "portrait", title: { ko: "자화상", en: "Portrait" }, works: ["a37","a36","a35","a34","a33","a32","a31","a30","a28","a27","a26","a25","a23","a22","a21","a20","a19","a18","a17","a16","a15","a14","a13","a12","a11","a10","a9","a8","a7","a6","a5","a4","a1"] },
       { id: "landscape", title: { ko: "풍경", en: "Landscape" }, works: ["ab4", "ab3","ab1"] },
       { id: "others-portrait", title: { ko: "타인의 초상", en: "Portraits of Others" }, works: ["ac30","ac29","ac28","ac27","ac26","ac25","ac24","ac23","ac22","ac21","ac20","ac19","ac18","ac17","ac16","ac15","ac14","ac13","ac12","ac11","ac10","ac9","ac8","ac7","ac6","ac5","ac4","ac3","ac2","ac1"] },
+      { id: "space", title: { ko: "공간", en: "Space" }, works: ["ae4","ae3","ae2", "ae1"] },
       { id: "piece", title: { ko: "조각", en: "Piece" }, works: ["ad6", "ad5", "ad4",] },
-      { id: "carving", title: { ko: "새김", en: "Carving" }, works: ["af1","af2"] },
-      { id: "space", title: { ko: "공간", en: "Space" }, works: ["ae4","ae3","ae2", "ae1"] }
+      { id: "carving", title: { ko: "새김", en: "Carving" }, works: ["af1","af2"] }
+      
 
     ]
   },
