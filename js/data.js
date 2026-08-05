@@ -1467,7 +1467,13 @@ const UI = {
     shortcutNav: "작품 이전/다음, 목록 이동",
     shortcutEnter: "선택 항목 열기",
     shortcutEsc: "닫기",
-    shortcutHelp: "이 안내 열기/닫기"
+    shortcutHelp: "이 안내 열기/닫기",
+
+    postSiblingPrev: "이전 글",
+    postSiblingNext: "다음 글"
+
+
+
   },
   en: {
     navHome: "Kwon Hoechan",
@@ -1541,6 +1547,11 @@ const UI = {
     shortcutNav: "Prev/next work, move through list",
     shortcutEnter: "Open selected item",
     shortcutEsc: "Close",
-    shortcutHelp: "Toggle this panel"
+    shortcutHelp: "Toggle this panel",
+
+    postSiblingPrev: "Previous",
+    postSiblingNext: "Next"
+
+
   }
 };

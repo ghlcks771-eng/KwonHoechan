@@ -1584,3 +1584,42 @@ img[loading="lazy"] {
 img[loading="lazy"].img-ready {
   opacity: 1;
 }
+
+/* 글 상세 페이지 맨 아래 - 같은 카테고리 안 이전/다음 글로 이동하는 칸 */
+.post-sibling-nav {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 56px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+.post-sibling-link {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  text-decoration: none;
+  color: var(--ink);
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.post-sibling-link:not(.post-sibling-empty):hover { border-color: var(--sanguine); background: rgba(0, 0, 0, 0.02); }
+.post-sibling-next { text-align: right; align-items: flex-end; }
+.post-sibling-empty { border-color: transparent; pointer-events: none; }
+.post-sibling-dir {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--graphite);
+}
+.post-sibling-title {
+  font-family: var(--font-display);
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+@media (max-width: 650px) {
+  .post-sibling-nav { grid-template-columns: 1fr; gap: 10px; }
+  .post-sibling-next { text-align: left; align-items: flex-start; }
+}

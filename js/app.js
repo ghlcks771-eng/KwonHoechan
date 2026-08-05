@@ -909,7 +909,13 @@
     if (!post) return renderNotFound();
 
     const path = findLeafPath(TEXT_CATEGORIES, "posts", postId) || [];
-    const { trail } = resolveTreePath(TEXT_CATEGORIES, path);
+    const { trail, node } = resolveTreePath(TEXT_CATEGORIES, path);
+
+    // 같은 카테고리 안에서 이 글의 앞/뒤 글을 찾음 - 맨 아래 위/아래 이동 칸에 씀
+    const siblingPosts = (node && node.posts) || [];
+    const siblingIdx = siblingPosts.indexOf(postId);
+    const prevPostId = siblingIdx > 0 ? siblingPosts[siblingIdx - 1] : null;
+    const nextPostId = siblingIdx >= 0 && siblingIdx < siblingPosts.length - 1 ? siblingPosts[siblingIdx + 1] : null;
 
     const citingExhibitions = findExhibitionsCitingPost(postId);
     const exploreLinksHtml = citingExhibitions.length
@@ -927,6 +933,21 @@
     }
     pendingBodySearchHighlight = null;
 
+    // 위/아래 칸 HTML - 없는 쪽(맨 처음/맨 마지막 글)은 빈 칸으로 자리만 유지
+    const siblingNavHtml = (siblingPosts.length > 1) ? `
+      <nav class="post-sibling-nav">
+        ${prevPostId ? `
+          <a href="#/text/post/${prevPostId}" class="post-sibling-link post-sibling-prev">
+            <span class="post-sibling-dir">${ui("postSiblingPrev")}</span>
+            <span class="post-sibling-title">${renderInline(t(POSTS[prevPostId].title))}</span>
+          </a>` : `<span class="post-sibling-link post-sibling-empty"></span>`}
+        ${nextPostId ? `
+          <a href="#/text/post/${nextPostId}" class="post-sibling-link post-sibling-next">
+            <span class="post-sibling-dir">${ui("postSiblingNext")}</span>
+            <span class="post-sibling-title">${renderInline(t(POSTS[nextPostId].title))}</span>
+          </a>` : `<span class="post-sibling-link post-sibling-empty"></span>`}
+      </nav>` : "";
+
     app.innerHTML = `
       <section class="detail-page">
         <div class="wrap narrow">
@@ -935,6 +956,7 @@
           <h1 class="post-title">${renderInline(t(post.title))}</h1>
           <p class="post-meta">${t(post.author) ? `${post.date} · ${renderInline(t(post.author))}` : post.date}</p>
           <div class="statement">${renderBodyWithFootnotes(rawBody, bodyHighlightQuery)}</div>
+          ${siblingNavHtml}
         </div>
       </section>`;
 
