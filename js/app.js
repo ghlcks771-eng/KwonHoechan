@@ -401,6 +401,21 @@
     return Object.keys(POSTS).filter((postId) => (t(POSTS[postId].body) || "").includes(title));
   }
 
+  // 글이 Text 카테고리 트리에서 어디에 속하는지(그 카테고리 제목) 찾음 - 같은 작품을
+  // 인용한 글이 여러 개일 때 "카테고리·글 제목"으로 구분해서 보여줄 때 씀
+  function findPostCategoryTitle(postId) {
+    let result = null;
+    const walk = (nodes) => {
+      (nodes || []).forEach((node) => {
+        if (result) return;
+        if ((node.posts || []).includes(postId)) { result = t(node.title); return; }
+        if (node.children) walk(node.children);
+      });
+    };
+    walk(TEXT_CATEGORIES);
+    return result;
+  }
+
   // 본문에서 유일한 작품 제목이 처음 등장하는 곳 하나만 링크로 치환(같은 글에서 반복 언급은 링크 안 함)
   function autoLinkWorkTitles(text, mentions) {
     const titleMap = buildUniqueTitleMap();
@@ -2512,13 +2527,19 @@
         }));
       }
 
-      // 이 작품을 인용한 글이 있으면 "글 찾아보기" 링크도 추가 (여러 개면 번호 매김)
+      // 이 작품을 인용한 글이 있으면 "글 찾아보기" 링크도 추가 - 여러 개면 어느 글인지
+      // 구분해야 하므로(번호 대신) "카테고리·글 제목" 형식으로 보여줌
       // - 대표 이미지든 부속 이미지든 작품 id 기준이라 동일하게 뜸
       const citingPosts = findPostsMentioningWork(item.id);
-      citingPosts.forEach((postId, i) => {
+      citingPosts.forEach((postId) => {
+        const p = POSTS[postId];
+        const catTitle = findPostCategoryTitle(postId);
+        const label = citingPosts.length > 1
+          ? `${catTitle ? `${catTitle} · ` : ""}${t(p.title)}`
+          : ui("exploreWriting");
         links.push({
           href: `#/text/post/${postId}`,
-          label: citingPosts.length > 1 ? `${ui("exploreWriting")} ${i + 1}` : `${ui("exploreWriting")}`,
+          label,
           kind: "post",
           workId: item.id
         });
