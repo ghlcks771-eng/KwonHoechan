@@ -912,7 +912,12 @@
     const { trail, node } = resolveTreePath(TEXT_CATEGORIES, path);
 
     // 같은 카테고리 안에서 이 글의 앞/뒤 글을 찾음 - 맨 아래 위/아래 이동 칸에 씀
-    const siblingPosts = (node && node.posts) || [];
+    // 목록 페이지(renderTextCategory)와 똑같은 정렬 기준(날짜 내림차순)을 써야, 화면에
+    // 보이는 순서랑 이전/다음 이동 순서가 일치함 - 정렬 안 된 원본 배열 순서를 쓰면
+    // 화면상 순서랑 어긋나서 엉뚱한 글에서 다음/이전이 없는 것처럼 보임
+    const siblingPosts = ((node && node.posts) || [])
+      .slice()
+      .sort((a, b) => (POSTS[b] && POSTS[b].date || "").localeCompare(POSTS[a] && POSTS[a].date || ""));
     const siblingIdx = siblingPosts.indexOf(postId);
     const prevPostId = siblingIdx > 0 ? siblingPosts[siblingIdx - 1] : null;
     const nextPostId = siblingIdx >= 0 && siblingIdx < siblingPosts.length - 1 ? siblingPosts[siblingIdx + 1] : null;
