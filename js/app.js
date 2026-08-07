@@ -4050,6 +4050,15 @@
   new MutationObserver(() => markAlreadyLoadedThumbs(app)).observe(app, { childList: true, subtree: true });
   markAlreadyLoadedThumbs();
 
+  // 브라우저가 페이지를 완전히 새로 로드하는 대신, 얼려뒀던 상태를 그대로 복원하는
+  // 경우(bfcache)가 있음 - 이때는 자바스크립트가 다시 실행되는 게 아니라서 captionHidden
+  // 같은 변수들이 리셋 없이 그대로 남아있게 됨. 이 복원 시점을 감지해서 확실히 리셋함
+  window.addEventListener("pageshow", (e) => {
+    if (e.persisted) {
+      setCaptionHidden(false);
+    }
+  });
+
   window.addEventListener("hashchange", routeWithMemory);
   window.addEventListener("DOMContentLoaded", route);
   route();
