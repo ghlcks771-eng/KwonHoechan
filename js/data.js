@@ -1285,7 +1285,7 @@ const EXHIBITIONS = [
     {
     id: "2022cylinder-group",
     type: "group",
-    title: { ko: "토크 2 / 뉴트럴 스티어", en: "TORQUE 2 / NEUTRAL STEER" },
+    title: { ko: "", en: "TORQUE 2 / NEUTRAL STEER" },
     year: "2022",
     venue: { ko: "실린더", en: "Cylinder" },
     city: { ko: "서울", en: "Seoul" },
