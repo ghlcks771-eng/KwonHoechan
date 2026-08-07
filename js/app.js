@@ -140,8 +140,14 @@
   // 작품 목록 그리드로 이동한 뒤, 해당 작품 카드로 스크롤(+옵션으로 자동 라이트박스 오픈)
   let pendingWorkFocus = null;
 
-  // 모바일 갤러리 핀치로 고른 열 개수(1~5) - 페이지를 이동하거나 나갔다 들어와도 기억함
-  let savedGalleryColumns = null;
+  // 모바일 갤러리 핀치로 고른 열 개수(1~5) - localStorage에 저장해서, 언어 설정처럼
+  // 페이지를 이동하거나 사이트를 나갔다 다시 들어와도(브라우저를 껐다 켜도) 기억함
+  let savedGalleryColumns = (function () {
+    try {
+      const saved = Number(localStorage.getItem("galleryCols"));
+      return saved >= 1 && saved <= 5 ? saved : null;
+    } catch (e) { return null; }
+  })();
 
   function applySavedGalleryColumns() {
     if (!savedGalleryColumns || savedGalleryColumns <= 1) return;
@@ -3886,6 +3892,7 @@
 
     function applyColumns(grid, cols) {
       savedGalleryColumns = cols;
+      try { localStorage.setItem("galleryCols", String(cols)); } catch (e) {}
       animateReflow(grid, () => {
         grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
         // 칸이 많아질수록(이미지가 작아질수록) 간격도 비례해서 좁아지게
