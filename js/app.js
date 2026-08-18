@@ -1834,6 +1834,7 @@
   // 리스너는 이미지 자체가 아니라 lb-image-wrap 전체(라이트박스 전체 영역)에 걸어서
   // 이미지 주변 여백에서 시작해도 동작함 (캡션 영역은 z-index가 더 높아 자연히 보호됨)
   let touchStartX = 0, touchStartY = 0, touchStartTime = 0, touchActive = false, touchSwiping = false;
+  let swipeTouchId = null; // 스와이프 중인 손가락의 식별자 - 도중에 다른 손가락이 실수로 닿았다 떨어져도 헷갈리지 않도록
   let touchWasSwipe = false; // 스와이프 직후 브라우저가 합성해서 발생시킬 수 있는 click(확대 토글)을 무시하기 위한 표시
   let touchPanStartLeft = 0, touchPanStartTop = 0;
   let pinchStartDist = null, pinchStartScale = 1;
@@ -1857,6 +1858,10 @@
 
   lbImageWrap.addEventListener("touchstart", (e) => {
     if (e.touches.length === 2) {
+      // 이미 스와이프 중이었다면, 손가락이 실수로 하나 더 닿은 것으로 보고 무시함 -
+      // 안 그러면 스와이프 도중 다른 손가락이 살짝 스치기만 해도 갑자기 확대 모드로
+      // 튀어버리는 버그가 생김(스와이프는 그대로 첫 번째 손가락 기준으로 계속 진행됨)
+      if (touchSwiping) return;
       touchActive = false;
       pinchStartDist = touchDistance(e.touches[0], e.touches[1]);
       pinchStartScale = scale;
@@ -1936,6 +1941,7 @@
     touchPanStartLeft = imgLeft;
     touchPanStartTop = imgTop;
     touchActive = true;
+    swipeTouchId = e.touches[0].identifier;
     lbImage.style.transition = "none";
   }, { passive: true });
 
@@ -2085,7 +2091,10 @@
   lbImageWrap.addEventListener("touchmove", (e) => {
     if (e.touches.length === 2 && pinchStartDist != null) return; // 핀치는 위쪽 리스너가 전담
 
-    if (!touchActive || e.touches.length !== 1) return;
+    // 스와이프 도중 손가락이 하나 더 닿아도(위에서 핀치로 전환하지 않고 무시했다면)
+    // 계속 첫 번째 손가락 기준으로 스와이프가 이어지도록 함 - 정확히 1개일 때만
+    // 허용하면, 실수로 스친 손가락 때문에 스와이프가 뚝 끊기는 문제가 생김
+    if (!touchActive || e.touches.length < 1) return;
     const dx = e.touches[0].clientX - touchStartX;
     const dy = e.touches[0].clientY - touchStartY;
 
@@ -2151,6 +2160,11 @@
     }
 
     if (!touchActive) return;
+    // 지금 떨어진 손가락이 실제로 스와이프 중이던 그 손가락인지 확인함 - 스와이프 도중
+    // 실수로 닿았던 다른 손가락이 먼저 떨어진 거라면(식별자가 다름) 무시하고, 진짜
+    // 스와이프하던 손가락은 여전히 화면에 남아있으므로 스와이프를 그대로 이어감
+    const liftedTouch = e.changedTouches[0];
+    if (swipeTouchId != null && liftedTouch && liftedTouch.identifier !== swipeTouchId) return;
     touchActive = false;
     lbImage.style.transition = "";
 
