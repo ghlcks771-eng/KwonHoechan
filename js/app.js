@@ -2098,11 +2098,14 @@
       return;
     }
 
-    // 대각선으로 애매하게 스와이프해도 옆으로 안 넘어가도록, 가로가 세로보다 확실히
-    // 더 커야만(대략 수평 기준 30도 이내) 좌우 스와이프로 인정함 (기존 45도보다 까다로움)
-    if (Math.abs(dx) <= Math.abs(dy) * 1.73) return;
-
     if (!touchSwiping) {
+      // 아직 스와이프로 확정되기 전에만 각도를 따짐 - 대각선으로 애매하게 스와이프해도
+      // 옆으로 안 넘어가도록, 가로가 세로보다 확실히 더 커야만(대략 수평 기준 30도 이내)
+      // 좌우 스와이프로 인정함(기존 45도보다 까다로움). 한 번 스와이프로 확정된 뒤에는
+      // 이 각도를 다시 안 따짐 - 안 그러면 천천히 드래그하다 손이 살짝 흔들려서(느릴수록
+      // 이 비중이 커짐) 순간적으로 각도가 벗어날 때마다 업데이트가 씹혀서 화면이 멈췄다가
+      // 나중에 쌓인 dx가 한꺼번에 반영되며 순간이동하는 것처럼 보이는 문제가 있었음
+      if (Math.abs(dx) <= Math.abs(dy) * 1.73) return;
       touchSwiping = true;
       setupSwipePeeks();
     }
@@ -3504,10 +3507,13 @@
       if (!active || e.touches.length !== 1 || !unit) return;
       const dx = e.touches[0].clientX - startX;
       const dy = e.touches[0].clientY - startY;
-      // 대각선으로 애매하게 스와이프해도 옆으로 안 넘어가도록, 가로가 세로보다 확실히
-      // 더 커야만(대략 수평 기준 30도 이내) 좌우 스와이프로 인정함 (기존 45도보다 까다로움)
-      if (Math.abs(dx) <= Math.abs(dy) * 1.73) return;
-      swiping = true;
+      if (!swiping) {
+        // 아직 스와이프로 확정되기 전에만 각도를 따짐(대략 수평 기준 30도 이내) - 확정된
+        // 뒤에는 다시 안 따짐(손 떨림 등으로 순간적으로 각도가 벗어날 때마다 업데이트가
+        // 씹혀서 멈췄다가 나중에 한꺼번에 반영되며 순간이동하는 문제 방지)
+        if (Math.abs(dx) <= Math.abs(dy) * 1.73) return;
+        swiping = true;
+      }
       unit.style.transition = "none";
       unit.style.transform = `translateX(${dx}px)`;
     }, { passive: true });
