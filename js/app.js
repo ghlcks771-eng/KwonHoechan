@@ -1856,7 +1856,7 @@
   let nextGap = 0, prevGap = 0;
   let nextFullSrc = "", prevFullSrc = ""; // 커밋 시점에 캐시를 미리 채우기 위해 원본(고화질) 주소를 기억해둠
 
-  lbImageWrap.addEventListener("touchstart", (e) => {
+  lbInner.addEventListener("touchstart", (e) => {
     if (e.touches.length === 2) {
       // 이미 스와이프 중이었다면, 손가락이 실수로 하나 더 닿은 것으로 보고 무시함 -
       // 안 그러면 스와이프 도중 다른 손가락이 살짝 스치기만 해도 갑자기 확대 모드로
@@ -2058,7 +2058,7 @@
   // "이 코드가 다 끝날 때까지 기다렸다가 그릴지 결정"하는 부담을 같이 지게 됨 - 이게
   // 인앱 브라우저처럼 메인 스레드가 조금이라도 바쁠 때(이미지 디코딩 등) 버벅임으로
   // 이어질 수 있어서, 스와이프 쪽만 따로 빼서 passive:true로 되돌림
-  lbImageWrap.addEventListener("touchmove", (e) => {
+  lbInner.addEventListener("touchmove", (e) => {
     if (e.touches.length !== 2 || pinchStartDist == null) return;
     e.preventDefault(); // 브라우저(인앱 브라우저 포함) 자체 핀치/스크롤 제스처 개입 방지
     const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
@@ -2088,7 +2088,7 @@
     updateZoomState();
   }, { passive: false });
 
-  lbImageWrap.addEventListener("touchmove", (e) => {
+  lbInner.addEventListener("touchmove", (e) => {
     if (e.touches.length === 2 && pinchStartDist != null) return; // 핀치는 위쪽 리스너가 전담
 
     // 스와이프 도중 손가락이 하나 더 닿아도(위에서 핀치로 전환하지 않고 무시했다면)
@@ -2126,7 +2126,7 @@
     if (lbImagePeekPrev2.style.display !== "none") lbImagePeekPrev2.style.transform = `translateX(${dx}px)`;
   }, { passive: true });
 
-  lbImageWrap.addEventListener("touchend", (e) => {
+  lbInner.addEventListener("touchend", (e) => {
     const wasPinching = pinchStartDist != null;
 
     // 두 손가락이 정확히 동시에 떨어지는 경우는 거의 없음 - 손가락이 2개 미만으로
