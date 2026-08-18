@@ -2046,36 +2046,44 @@
     setPeekImageSrc(el, dir > 0 ? "prev2" : "next2", entry.src, entry.thumb, !!dims, gapOffset);
   }
 
+  // 핀치(2손가락)와 스와이프(1손가락)를 별도 리스너로 분리함 - 핀치는 브라우저 자체
+  // 확대 제스처를 막아야 해서 passive:false(+ preventDefault)가 필요하지만, 스와이프는
+  // 그럴 필요가 없는데 같은 리스너에 묶여있으면 스와이프 쪽도 어쩔 수 없이 매 프레임
+  // "이 코드가 다 끝날 때까지 기다렸다가 그릴지 결정"하는 부담을 같이 지게 됨 - 이게
+  // 인앱 브라우저처럼 메인 스레드가 조금이라도 바쁠 때(이미지 디코딩 등) 버벅임으로
+  // 이어질 수 있어서, 스와이프 쪽만 따로 빼서 passive:true로 되돌림
   lbImageWrap.addEventListener("touchmove", (e) => {
-    if (e.touches.length === 2 && pinchStartDist != null) {
-      e.preventDefault(); // 브라우저(인앱 브라우저 포함) 자체 핀치/스크롤 제스처 개입 방지
-      const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-      const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-      // 앵커(이미지 안에서 지금 중점이 가리키는 지점의 비율)는 매 프레임 갱신되는 이전
-      // 중점 기준으로 계산 - 클램프 없이 그대로 써야 확대/축소와 두 손가락 이동(팬)이
-      // 동시에 자연스럽게 반영됨(고정된 앵커에서만 계산하면 이동이 안 먹힘)
-      const ax = (pinchMidX - imgLeft) / imgWidth;
-      const ay = (pinchMidY - imgTop) / imgHeight;
+    if (e.touches.length !== 2 || pinchStartDist == null) return;
+    e.preventDefault(); // 브라우저(인앱 브라우저 포함) 자체 핀치/스크롤 제스처 개입 방지
+    const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+    const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+    // 앵커(이미지 안에서 지금 중점이 가리키는 지점의 비율)는 매 프레임 갱신되는 이전
+    // 중점 기준으로 계산 - 클램프 없이 그대로 써야 확대/축소와 두 손가락 이동(팬)이
+    // 동시에 자연스럽게 반영됨(고정된 앵커에서만 계산하면 이동이 안 먹힘)
+    const ax = (pinchMidX - imgLeft) / imgWidth;
+    const ay = (pinchMidY - imgTop) / imgHeight;
 
-      const newDist = touchDistance(e.touches[0], e.touches[1]);
-      // 캡션 숨기기 제스처는 완전히 초기화된 상태(1배)에서 시작한 핀치에서만 인식함
-      // - 이미 확대된 상태라면 1 밑으로는 못 내려가게(정상 줌 동작만 하게) 막음
-      const minScale = pinchStartScale <= 1 ? 0.5 : 1;
-      const newScale = Math.min(6, Math.max(minScale, pinchStartScale * (newDist / pinchStartDist)));
-      const newWidth = fitWidth * newScale;
-      const newHeight = fitHeight * newScale;
-      imgLeft = cx - ax * newWidth;
-      imgTop = cy - ay * newHeight;
-      imgWidth = newWidth;
-      imgHeight = newHeight;
-      scale = newScale;
-      pinchMidX = cx;
-      pinchMidY = cy;
-      if (scale < 0.92) pinchWentBelowFit = true;
-      applyImageBox();
-      updateZoomState();
-      return;
-    }
+    const newDist = touchDistance(e.touches[0], e.touches[1]);
+    // 캡션 숨기기 제스처는 완전히 초기화된 상태(1배)에서 시작한 핀치에서만 인식함
+    // - 이미 확대된 상태라면 1 밑으로는 못 내려가게(정상 줌 동작만 하게) 막음
+    const minScale = pinchStartScale <= 1 ? 0.5 : 1;
+    const newScale = Math.min(6, Math.max(minScale, pinchStartScale * (newDist / pinchStartDist)));
+    const newWidth = fitWidth * newScale;
+    const newHeight = fitHeight * newScale;
+    imgLeft = cx - ax * newWidth;
+    imgTop = cy - ay * newHeight;
+    imgWidth = newWidth;
+    imgHeight = newHeight;
+    scale = newScale;
+    pinchMidX = cx;
+    pinchMidY = cy;
+    if (scale < 0.92) pinchWentBelowFit = true;
+    applyImageBox();
+    updateZoomState();
+  }, { passive: false });
+
+  lbImageWrap.addEventListener("touchmove", (e) => {
+    if (e.touches.length === 2 && pinchStartDist != null) return; // 핀치는 위쪽 리스너가 전담
 
     if (!touchActive || e.touches.length !== 1) return;
     const dx = e.touches[0].clientX - touchStartX;
@@ -2098,17 +2106,13 @@
       touchSwiping = true;
       setupSwipePeeks();
     }
-    // 가로 스와이프로 확정된 이상, 브라우저(카카오톡 등 인앱 브라우저 포함)가 자기
-    // 세로 스크롤/제스처로 끼어들지 않도록 명시적으로 막음 - 잡기로 이어받은 경우도
-    // 여기로 매 프레임 지나가므로 항상 일관되게 적용됨
-    e.preventDefault();
 
     lbImage.style.transform = `translateX(${dx}px)`;
     if (lbImagePeekNext.style.display !== "none") lbImagePeekNext.style.transform = `translateX(${dx}px)`;
     if (lbImagePeekPrev.style.display !== "none") lbImagePeekPrev.style.transform = `translateX(${dx}px)`;
     if (lbImagePeekNext2.style.display !== "none") lbImagePeekNext2.style.transform = `translateX(${dx}px)`;
     if (lbImagePeekPrev2.style.display !== "none") lbImagePeekPrev2.style.transform = `translateX(${dx}px)`;
-  }, { passive: false });
+  }, { passive: true });
 
   lbImageWrap.addEventListener("touchend", (e) => {
     const wasPinching = pinchStartDist != null;
