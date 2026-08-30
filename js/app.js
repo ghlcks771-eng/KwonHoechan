@@ -660,10 +660,16 @@
       <section class="cv-page">
         <div class="wrap">
           ${profile}
-          <p class="cv-intro">${ui("cvIntro")}</p>
+          <p class="cv-intro"><span class="cv-intro-text">${ui("cvIntro")}</span></p>
           ${sections}
         </div>
       </section>`;
+
+    // CV 페이지가 켜질 때마다(처음 방문이든, 다른 페이지 보다가 다시 돌아오든) 안내문구를
+    // 한 번 강조함(각주 이동과 같은 시간) - 전시명이 클릭된다는 걸 놓치기 쉬워서, 매번
+    // 살짝 눈에 띄게 함. 글자 길이만큼만 강조되도록 안쪽 span을 대상으로 함
+    const introEl = app.querySelector(".cv-intro-text");
+    if (introEl) flashHighlightEl(introEl);
   }
 
   // ============================================================
