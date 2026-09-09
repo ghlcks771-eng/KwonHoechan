@@ -1674,19 +1674,6 @@
   });
 
   // 화면 밖으로 완전히 벗어나지 않도록 이미지 위치를 보정
-  function clampImagePosition() {
-    if (imgWidth > window.innerWidth) {
-      imgLeft = Math.min(0, Math.max(window.innerWidth - imgWidth, imgLeft));
-    } else {
-      imgLeft = (window.innerWidth - imgWidth) / 2;
-    }
-    if (imgHeight > window.innerHeight) {
-      imgTop = Math.min(0, Math.max(window.innerHeight - imgHeight, imgTop));
-    } else {
-      imgTop = (window.innerHeight - imgHeight) / 2;
-    }
-  }
-
   function touchDistance(a, b) {
     const dx = a.clientX - b.clientX;
     const dy = a.clientY - b.clientY;
@@ -2105,10 +2092,9 @@
     const dy = e.touches[0].clientY - touchStartY;
 
     if (scale > 1) {
-      // 확대된 상태 - 팬(화면 밖으로 못 나가게)
+      // 확대된 상태 - 팬(경계 제한 없이 자유롭게 드래그)
       imgLeft = touchPanStartLeft + dx;
       imgTop = touchPanStartTop + dy;
-      clampImagePosition();
       applyImageBox();
       return;
     }
