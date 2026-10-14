@@ -298,11 +298,33 @@
     return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 
+  // 본문 이미지 삽입 기호: -[@썸네일경로|원본경로|캡션]-  (원본/캡션은 생략 가능)
+  // 각주(-[^...]-)와 안 헷갈리게 ^ 대신 @를 씀
+  const IMG_MARKER_RE = /-\[@([\s\S]*?)\]-/g;
+
+  function parseImageMarker(content) {
+    const parts = (content || "").split("|").map((x) => x.trim());
+    const isImagePath = (v) => /\.(jpe?g|png|gif|webp|avif|svg)(\?\S*)?$/i.test(v);
+    const first = parts[0];
+    if (!first) return null;
+    let image = first, caption = "";
+    if (parts.length >= 2) {
+      if (isImagePath(parts[1])) { image = parts[1]; caption = parts.slice(2).join("|"); }
+      else caption = parts.slice(1).join("|");
+    }
+    return { thumb: first, image, caption: caption.replace(/\s+/g, " ").trim() };
+  }
+
+  // 검색/"글 찾아보기" 판정처럼 순수 글자만 필요한 곳에서 이미지 기호(경로 문자열)를 제외함
+  function stripImageMarkers(text) {
+    return (text || "").replace(IMG_MARKER_RE, "");
+  }
+
   // 검색 매칭/표시용으로 서식 기호(**볼드**, -*이탤릭*-, __밑줄__, [링크](주소))를 제거한
   // 순수 텍스트를 만듦 - 이걸 안 하면 별표가 연속된 검색어 매칭을 깨뜨리고,
   // 결과 화면에도 기호가 그대로 노출돼버림
   function stripFormatting(text) {
-    return (text || "")
+    return stripImageMarkers(text || "")
       .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, "$1")
       .replace(/\*\*([\s\S]*?)\*\*/g, "$1")
       .replace(/-\*([\s\S]*?)\*-/g, "$1")
@@ -404,7 +426,7 @@
     if (!title) return [];
     const titleMap = buildUniqueTitleMap();
     if (titleMap[title] !== workId) return []; // 유일한 제목이 아니면 애초에 자동 링크 대상이 아니었음
-    return Object.keys(POSTS).filter((postId) => (t(POSTS[postId].body) || "").includes(title));
+    return Object.keys(POSTS).filter((postId) => stripImageMarkers(t(POSTS[postId].body)).includes(title));
   }
 
   // 글이 Text 카테고리 트리에서 어디에 속하는지(그 카테고리 제목) 찾음 - 같은 작품을
@@ -454,12 +476,31 @@
       .replace(/ {2,}/g, (m) => "\u00A0".repeat(m.length - 1) + " ")
       .replace(/\n /g, "\n\u00A0");
 
+    // 0단계: 이미지 삽입 기호 -[@썸네일|원본|캡션]-을 가장 먼저 임시 표시로 빼둠 - 경로 문자열에
+    // 서식 기호(__ 등)나 검색 강조 토큰이 끼어들어 깨지는 일이 없게 함
+    const inlineImages = [];
+    workingText = workingText.replace(IMG_MARKER_RE, (match, content) => {
+      const img = parseImageMarker(content);
+      if (!img) return "";
+      inlineImages.push(img);
+      return `@@IMG${inlineImages.length}@@`;
+    });
+
     // 검색 강조: 각주/링크 처리 전에 원본 텍스트에서 매치 위치를 찾아 특수 토큰으로 감싸둠
     // (각주 안의 매치는 여기서 다루지 않음 - findSearchMatchLocation으로 미리 구분해서
     //  그 경우엔 각주 목록 쪽에 자연히 강조되도록 별도 처리함)
     if (highlightQuery) {
       const lowerText = workingText.toLowerCase();
-      const idx = lowerText.indexOf(highlightQuery.toLowerCase());
+      const lowerQuery = highlightQuery.toLowerCase();
+      // 이미지 임시 표시(@@IMG1@@) 안에 걸린 매치는 건너뜀
+      const tokenRanges = [];
+      const tokenRe = /@@IMG\d+@@/g;
+      let tm;
+      while ((tm = tokenRe.exec(workingText))) tokenRanges.push([tm.index, tm.index + tm[0].length]);
+      let idx = lowerText.indexOf(lowerQuery);
+      while (idx !== -1 && tokenRanges.some(([a, b]) => idx < b && idx + lowerQuery.length > a)) {
+        idx = lowerText.indexOf(lowerQuery, idx + 1);
+      }
       if (idx !== -1) {
         const matched = workingText.slice(idx, idx + highlightQuery.length);
         workingText = workingText.slice(0, idx) + "@@SM_START@@" + matched + "@@SM_END@@" + workingText.slice(idx + highlightQuery.length);
@@ -482,6 +523,17 @@
     bodyHtml = bodyHtml.replace(/@@FN(\d+)@@/g, (match, num) =>
       `<sup class="footnote-ref"><span class="footnote-jump" data-jump-to="fn-${num}" id="fnref-${num}" role="link" tabindex="0">${num})</span></sup>`
     );
+
+    // 2.2단계: 이미지 임시 표시를 실제 썸네일로 치환 - 앞뒤에 붙은 줄바꿈(<br>) 하나씩은 걷어내서
+    // (블록으로 놓이는 이미지 때문에) 위아래 빈 줄이 따로 더 생기지 않게 함
+    const escAttr = (v) => escapeHtml(v).replace(/"/g, "&quot;");
+    bodyHtml = bodyHtml.replace(/(?:<br>)?@@IMG(\d+)@@(?:<br>)?/g, (match, num) => {
+      const im = inlineImages[Number(num) - 1];
+      if (!im) return "";
+      // 이미지(클릭하면 라이트박스) + 그 밑에 한 칸 띄워서 작은 캡션(있을 때만)
+      const capHtml = im.caption ? `<span class="post-inline-cap">${renderInline(im.caption)}</span>` : "";
+      return `<span class="post-inline-figure"><span class="post-inline-image" role="button" tabindex="0" data-thumb="${escAttr(im.thumb)}" data-image="${escAttr(im.image)}" data-caption="${escAttr(im.caption)}"><img src="${escAttr(im.thumb)}" alt="${escAttr(im.caption)}" loading="lazy" /></span>${capHtml}</span>`;
+    });
 
     // 2.5단계: 작품 제목 플레이스홀더를 실제 미리보기 링크로 치환
     bodyHtml = bodyHtml.replace(/@@WM(\d+)@@/g, (match, num) => {
@@ -1480,6 +1532,21 @@
       if (target) { scrollElementToCenter(target, true); flashHighlightEl(flashHighlightFootnoteTarget(target), 1200); }
     }
   });
+  // 글 본문 속 이미지(.post-inline-image) 클릭/Enter/Space -> 그 이미지만 라이트박스로 보여줌
+  document.addEventListener("click", (e) => {
+    const box = e.target.closest && e.target.closest(".post-inline-image");
+    if (!box || !box.dataset.image) return;
+    openPostImageLightbox(box.dataset.image, box.dataset.thumb, box.dataset.caption);
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    const box = document.activeElement && document.activeElement.closest && document.activeElement.closest(".post-inline-image");
+    if (box && box.dataset.image) {
+      e.preventDefault();
+      openPostImageLightbox(box.dataset.image, box.dataset.thumb, box.dataset.caption);
+    }
+  });
+
   window.addEventListener("hashchange", hideWorkPreview);
 
   function renderNotFound() {
@@ -2627,6 +2694,17 @@
     openLightboxItem(lightboxItems[index]);
   }
 
+  // 글 본문에 삽입된 이미지를 클릭했을 때 - 그 한 장만 보여주는 단순 라이트박스(좌우 이동 없음).
+  // thumb을 먼저 보여주고 원본(image)으로 자연스럽게 바뀌는 건 기존 라이트박스 로직 그대로 씀
+  function openPostImageLightbox(image, thumb, caption) {
+    lightboxSubIndex = 0;
+    lightboxItems = [{ kind: "install", image, thumb: thumb && thumb !== image ? thumb : null, caption: caption || "", note: "" }];
+    lightboxIndex = 0;
+    lightboxContext = "postImage";
+    lightboxSource = { type: "postImage" };
+    openLightboxItem(lightboxItems[0]);
+  }
+
   function findCurrentLightboxCard() {
     const item = lightboxItems[lightboxIndex];
     if (!item) return null;
@@ -2782,6 +2860,7 @@
   // 뒤로 가면서 부속 이미지 있는 작품으로 새로 들어가면, 자연스러운 방향이라 그 마지막
   // 부속 이미지에서 시작함(처음부터가 아니라)
   function stepLightboxHorizontal(direction) {
+    if (lightboxContext === "postImage") return; // 글 속 이미지는 한 장뿐이라 이동 없음
     const step = resolveSubStep(direction);
     if (step.type === "sub") {
       lightboxSubIndex = step.subIndex;
@@ -2809,6 +2888,7 @@
   // 끝/처음이면 좌우와 같은 방식으로 다음/이전 페이지(혹은 전시 개요)로 넘어감
   function showLightboxByRow(direction) {
     if (!lightboxItems.length) return;
+    if (lightboxContext === "postImage") return;
     if (direction < 0 && lightboxIndex === 0 && tryExhibitionBackToOverview()) return;
 
     const total = lightboxItems.length;
@@ -2866,6 +2946,8 @@
     lightbox.classList.remove("open");
     document.body.style.overflow = "";
     document.body.classList.remove("lightbox-active");
+    // 글 속 이미지 전용 상태는 닫을 때 남기지 않음 - 다음에 다른 방식으로 열 때 방향키 등이 막히지 않게
+    if (lightboxContext === "postImage") { lightboxContext = null; lightboxSource = null; }
     // resetZoom()은 이미지가 완전히 로드된 상태에서만 리셋하는 조건이 있어서, 그 타이밍이
     // 애매하게 걸리면 확대/이동 상태가 그대로 남을 수 있음 - 닫을 때는 조건 없이 확실하게
     // scale과 남아있는 transform부터 지워둠

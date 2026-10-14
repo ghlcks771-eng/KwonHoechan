@@ -1623,3 +1623,41 @@ img[loading="lazy"].img-ready {
   .post-sibling-nav { grid-template-columns: 1fr; gap: 10px; }
   .post-sibling-next { text-align: left; align-items: flex-start; }
 }
+
+/* 글 본문에 삽입된 이미지(-[@썸네일|원본|캡션]-) - 글 폭 안에서 가운데에 놓이고, 폭을 꽉
+   채우지 않게 84%까지만 커짐. 세로로 긴 그림도 화면 높이의 55%까지만 */
+.post-inline-figure {
+  display: block;
+  width: fit-content;
+  max-width: 84%;
+  margin: 1.6em auto;
+}
+.post-inline-image {
+  display: block;
+  cursor: zoom-in;
+  -webkit-tap-highlight-color: transparent;
+}
+.post-inline-image img {
+  display: block;
+  margin: 0 auto;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 55vh;
+  -webkit-user-drag: none;
+}
+.post-inline-image:focus-visible { outline: 1px solid var(--sanguine); outline-offset: 4px; }
+
+/* 이미지 밑 캡션 - 한 칸 띄우고 작게, 가운데 정렬. width:0 + min-width:100%는 캡션이 길어도
+   이미지 폭보다 넓어지지 않고 이미지 폭에 맞춰 줄바꿈되게 하는 방법 */
+.post-inline-cap {
+  display: block;
+  width: 0;
+  min-width: 100%;
+  margin-top: 6px;
+  font-family: var(--font-caption);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--graphite);
+  text-align: center;
+}
