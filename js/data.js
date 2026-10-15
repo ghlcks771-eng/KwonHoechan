@@ -557,7 +557,7 @@ ad5: {
       { thumb: "thumb/!ad6-6.jpg",image: "images/ad6-6.jpg" }
       ],
     year: "2025",
-    medium: { ko: "천 접착제 코팅, 폴리에스터 실로 꿰맨 캔버스 위에 아크릴릭", en: "acrylic and conte on canvas sewn with polyester thread and coated with textile adhesive" },
+    medium: { ko: "천 접착제 코팅, 폴리에스터 실로 꿰맨 캔버스 위에 아크릴릭, 콩테", en: "acrylic and conte on canvas sewn with polyester thread and coated with textile adhesive" },
     size: "99(h)x47x33cm",
     note: { ko: "사진 촬영: 최철림", en: "Photo: Choi Chul-lim" }
   },
