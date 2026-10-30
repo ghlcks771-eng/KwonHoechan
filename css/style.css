@@ -35,6 +35,10 @@ html { scroll-behavior: smooth; scrollbar-gutter: stable; }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  /* 글자 강조(각주 이동, CV 안내문구 등)가 서서히 사라지는 건 '움직임'이 아니라 색이 옅어지는
+     것뿐이라, 위의 일괄 규칙에서 예외로 둠 - 안 그러면 OS에서 '동작 줄이기'를 켠 컴퓨터에서
+     페이드 없이 뚝 사라짐 */
+  .flash-highlight.flash-highlight-fade { transition-duration: 1s !important; }
 }
 
 body {
