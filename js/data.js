@@ -1026,7 +1026,7 @@ const CV_GROUPS = [
 // ------------------------------------------------------------
 const EXHIBITIONS = [
   {
-    id: "2026every-solo",
+    id: "2025every-solo",
     type: "solo",
     title: { ko: "", en: "Cheese!" },
     year: "2025",
@@ -1075,7 +1075,7 @@ const EXHIBITIONS = [
     ],
     works: []
   },  {
-    id: "2025every-solo",
+    id: "2023every-solo",
     type: "solo",
     title: { ko: "낙서의 초상", en: "Portraits of Scribble" },
     year: "2023",
