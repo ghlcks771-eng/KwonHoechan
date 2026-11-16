@@ -1403,6 +1403,10 @@ const CONTACT = [
 const UI = {
   ko: {
     navHome: "권회찬",
+    landingCV: "전시 이력 · 전시별 자료",
+    landingWorks: "작업 이미지",
+    landingText: "작가 글 · 평문",
+    landingContact: "연락처",
     navCV: "CV",
     navWorks: "Works",
     navText: "Texts",
@@ -1483,6 +1487,10 @@ const UI = {
   },
   en: {
     navHome: "Kwon Hoechan",
+    landingCV: "Exhibition history & materials",
+    landingWorks: "Images of works",
+    landingText: "Writings & critique",
+    landingContact: "Contact",
     navCV: "CV",
     navWorks: "Works",
     navText: "Texts",

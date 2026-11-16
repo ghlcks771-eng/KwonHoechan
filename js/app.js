@@ -681,7 +681,33 @@
   }
 
   // ============================================================
-  // 렌더: CV (홈)
+  // 렌더: 미리보기(홈) - CV/Works/Text/Contact로 가는 큰 버튼. 이 페이지에서는
+  // 헤더 메뉴를 숨기고(body.landing-page) 이 버튼들이 메뉴를 대신함
+  // ============================================================
+  function renderLanding() {
+    document.body.classList.add("landing-page");
+    const items = [
+      { href: "#/cv", title: ui("navCV"), sub: ui("landingCV") },
+      { href: "#/works", title: ui("navWorks"), sub: ui("landingWorks") },
+      { href: "#/text", title: ui("navText"), sub: ui("landingText") },
+      { href: "#/contact", title: ui("navContact"), sub: ui("landingContact") }
+    ];
+    app.innerHTML = `
+      <section class="landing-page-section">
+        <div class="wrap">
+          <ul class="landing-menu">
+            ${items.map((it) => `
+            <li><a href="${it.href}" class="landing-btn">
+              <span class="landing-btn-title">${it.title}</span>
+              <span class="landing-btn-sub">${it.sub}</span>
+            </a></li>`).join("")}
+          </ul>
+        </div>
+      </section>`;
+  }
+
+  // ============================================================
+  // 렌더: CV (#/cv)
   // ============================================================
   function renderCV() {
     const profile = `
@@ -765,7 +791,7 @@
     app.innerHTML = `
       <section class="detail-page">
         <div class="wrap">
-          <a href="#/" class="back-link">${ui("backToCV")}</a>
+          <a href="#/cv" class="back-link">${ui("backToCV")}</a>
           <p class="section-label detail-year">${ex.year}</p>
           <h1 class="detail-title">${t(ex.title)}</h1>
           <p class="detail-venue">${t(ex.venue)}</p>
@@ -1554,7 +1580,7 @@
       <section class="list-page">
         <div class="wrap">
           <p class="section-label">404</p>
-          <p>${ui("notFound")} <a href="#/">${ui("backHome")}</a></p>
+          <p>${ui("notFound")} <a href="#/cv">${ui("backHome")}</a></p>
         </div>
       </section>`;
   }
@@ -3836,7 +3862,7 @@
 
     const k = e.key.toLowerCase();
     if (k === "w") { location.hash = "#/works"; return; }
-    if (k === "c") { location.hash = "#/"; return; }
+    if (k === "c") { location.hash = "#/cv"; return; }
     if (k === "t") { location.hash = "#/text"; return; }
     if (k === "n") { location.hash = "#/contact"; return; }
     if (k === "e") { setLang("en"); return; }
@@ -3910,8 +3936,10 @@
   function routeInner() {
     const segments = location.hash.replace(/^#/, "").split("/").filter(Boolean);
     document.body.classList.remove("gallery-page");
+    document.body.classList.remove("landing-page");
 
-    if (segments.length === 0) return renderCV();
+    if (segments.length === 0) return renderLanding();
+    if (segments[0] === "cv") return renderCV();
     if (segments[0] === "works") {
       return segments.length === 1 ? renderWorksIndex() : renderWorksCategory(segments.slice(1));
     }
